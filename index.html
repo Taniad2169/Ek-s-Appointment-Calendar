@@ -1,4 +1,4 @@
-`<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -151,6 +151,7 @@
             color: #d91d09;
         }
         
+        /* New custom modal and backdrop styles for robust functionality */
         .custom-modal {
             position: fixed;
             top: 0;
@@ -160,8 +161,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 2001;
-            pointer-events: none;
+            z-index: 2001; /* Must be higher than backdrop */
+            pointer-events: none; /* Initially non-clickable */
         }
         .custom-modal.open {
             pointer-events: auto;
@@ -184,7 +185,7 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
-            z-index: 2000;
+            z-index: 2000; /* Must be behind the modal */
         }
 
         .hidden {
@@ -246,253 +247,819 @@
             background-color: #a8f0a8;
         }
     </style>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-analytics.js"></script>
+
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyB0b-ojel3D_gsVg7dqv44BD0rVpacHhW0",
+        authDomain: "express-capital-webhook.firebaseapp.com",
+        projectId: "express-capital-webhook",
+        storageBucket: "express-capital-webhook.firebasestorage.app",
+        messagingSenderId: "163338622500",
+        appId: "1:163338622500:web:f62cd0a2379ff45e03aab1",
+        measurementId: "G-RF71N8KHB7"
+      };
+
+      firebase.initializeApp(firebaseConfig);
+    </script>
+</head>
+<body class="p-8">
+
+    <div class="header relative mb-8 rounded-lg">
+        <h1 class="text-3xl font-bold relative z-10">Ek's Calendar <span class="red-text">Best Barber in Town</span></h1>
+        <h2 class="text-xl relative z-10">Book an appointment</h2>
+        <p class="text-sm font-bold text-white relative z-10">For a custom calendar design, call Tania Domingue at <a href="tel:4158770687" class="font-bold text-white">(415) 877-0687</a>.</p>
+        <span class="target-animated" style="left: 10%;">🎯</span>
+        <span class="target-animated" style="right: 10%;">🎯</span>
+        <span id="bell-emoji" class="bell-animated hidden" style="left: 50%; top: 10px;">🔔</span>
+        <span class="barber-pole-animated">💈</span>
+        <span class="razor-animated">🪒</span>
+    </div>
+    <div class="calendar-container-wrapper">
+        <div class="calendar-frame calendar-frame-left rounded-l-lg"></div>
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full">
+            <div class="flex justify-between items-center mb-4">
+                <button id="prevMonth" class="month-nav-btn py-1 px-3">&lt;</button>
+                <h2 id="currentMonthYear" class="text-2xl font-bold"></h2>
+                <button id="nextMonth" class="month-nav-btn py-1 px-3">&gt;</button>
+            </div>
+            <div id="calendar" class="grid grid-cols-7 gap-1 text-center text-sm font-bold">
+                <div class="text-gray-500">Sun</div>
+                <div class="text-gray-500">Mon</div>
+                <div class="text-gray-500">Tue</div>
+                <div class="text-gray-500">Wed</div>
+                <div class="text-gray-500">Thu</div>
+                <div class="text-gray-500">Fri</div>
+                <div class="text-gray-500">Sat</div>
+            </div>
+        </div>
+        <div class="calendar-frame calendar-frame-right rounded-r-lg"></div>
+    </div>
     
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js'></script>
+    <div class="flex justify-center space-x-4 mt-8">
+        <button id="viewAppointmentsBtn" class="btn-custom admin-button hidden">View Appointments</button>
+        <button id="viewEventsBtn" class="btn-custom admin-button hidden">Saved Events</button>
+        <button id="blockBtn" class="btn-custom admin-button hidden">Block Day/Hours</button>
+        <button id="unblockBtn" class="btn-custom admin-button hidden">Unblock Day/Hours</button>
+    </div>
+    
+    <div id="appointmentModal" class="custom-modal hidden">
+        <div class="custom-modal-content">
+            <h3 class="text-xl font-bold mb-4">Set Appointment</h3>
+            <div class="mb-4">
+                <label for="appointmentTime" class="block mb-2 text-sm font-medium text-gray-700">Time:</label>
+                <select id="appointmentTime" class="w-full p-2 border rounded-md"></select>
+            </div>
+            <div class="mb-4">
+                <label for="appointmentName" class="block mb-2 text-sm font-medium text-gray-700">Name:</label>
+                <input type="text" id="appointmentName" class="w-full p-2 border rounded-md">
+            </div>
+            <div class="mb-4">
+                <label for="appointmentPhone" class="block mb-2 text-sm font-medium text-gray-700">Phone Number:</label>
+                <input type="tel" id="appointmentPhone" class="w-full p-2 border rounded-md">
+            </div>
+            <div class="mb-4">
+                <label for="appointmentPurpose" class="block mb-2 text-sm font-medium text-gray-700">Purpose:</label>
+                <select id="appointmentPurpose" class="w-full p-2 border rounded-md">
+                    <option value="regularhaircut">Regular haircut</option>
+                    <option value="beardtrimsshave">Beard trims & shaves</option>
+                    <option value="fadeslineups">Fades & line-ups</option>
+                    <option value="hairlinescalpcare">Hair-line scalp care</option>
+                    <option value="groomingadvice">Grooming advice</option>
+                    <option value="kidscuts">Kids' cuts</option>
+                    <option value="lowmidhighskinfade">Low/mid/high skin fade</option>
+                    <option value="taper">Taper</option>
+                    <option value="shorterprecisioncuts">Shorter/precision cuts</option>
+                    <option value="buzzcut">Buzz cut</option>
+                    <option value="crewcutivyleague">Crew cut / Ivy league</option>
+                    <option value="pompadour">Pompadour</option>
+                    <option value="flattop">Flat top</option>
+                    <option value="lineupedgeup">Line-up/edge-up</option>
+                    <option value="beardtrimsstyle">Beard trims & style</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="appointmentComments" class="block mb-2 text-sm font-medium text-gray-700">Comments (Max 200 words):</label>
+                <textarea id="appointmentComments" class="w-full p-2 border rounded-md" rows="5" maxlength="1000"></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeAppointmentModal">Cancel</button>
+                <button class="btn-custom" id="submitAppointmentBtn">Submit</button>
+            </div>
+        </div>
+    </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, addDoc, setDoc, deleteDoc, getDoc, getDocs, query, where, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <div id="eventModal" class="custom-modal hidden">
+        <div class="custom-modal-content">
+            <h3 class="text-xl font-bold mb-4">Add Event</h3>
+            <div class="mb-4">
+                <label for="eventType" class="block mb-2 text-sm font-medium text-gray-700">Event Type:</label>
+                <select id="eventType" class="w-full p-2 border rounded-md">
+                    <option value="doctor">Doctor's Appointment</option>
+                    <option value="vacation">Vacation</option>
+                    <option value="travel">Travel</option>
+                    <option value="party">Party</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div id="otherEventContainer" class="mb-4 hidden">
+                <label for="otherEvent" class="block mb-2 text-sm font-medium text-gray-700">Other Event (50 words):</label>
+                <textarea id="otherEvent" class="w-full p-2 border rounded-md" rows="2" maxlength="250"></textarea>
+            </div>
+            <div class="mb-4">
+                <label for="eventTime" class="block mb-2 text-sm font-medium text-gray-700">Time:</label>
+                <select id="eventTime" class="w-full p-2 border rounded-md"></select>
+            </div>
+            <div class="mb-4">
+                <label for="eventComments" class="block mb-2 text-sm font-medium text-gray-700">Comments (Max 300 words):</label>
+                <textarea id="eventComments" class="w-full p-2 border rounded-md" rows="5" maxlength="1500"></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeEventModal">Cancel</button>
+                <button class="btn-custom" id="saveEventBtn">Save Event</button>
+            </div>
+        </div>
+    </div>
 
-        setLogLevel('debug');
+    <div id="taskModal" class="custom-modal hidden">
+        <div class="custom-modal-content">
+            <h3 class="text-xl font-bold mb-4">Add Task</h3>
+            <div class="mb-4">
+                <label for="taskType" class="block mb-2 text-sm font-medium text-gray-700">Task Type:</label>
+                <select id="taskType" class="w-full p-2 border rounded-md">
+                    <option value="demo">Working on a demo</option>
+                    <option value="webdesign">Working a custom web design</option>
+                    <option value="calendar">Working a calendar</option>
+                    <option value="form">Working a form</option>
+                    <option value="callback">Call back prospect</option>
+                    <option value="call">Call</option>
+                    <option value="text">Text</option>
+                    <option value="email">Send email</option>
+                    <option value="collaborate">Collaborate</option>
+                    <option value="zoommeeting">Zoom meeting</option>
+                    <option value="livenetworking">Live networking</option>
+                    <option value="zoomnetworking">Zoom networking</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div id="otherTaskContainer" class="mb-4 hidden">
+                <label for="otherTask" class="block mb-2 text-sm font-medium text-gray-700">Other Task (50 words):</label>
+                <textarea id="otherTask" class="w-full p-2 border rounded-md" rows="2" maxlength="250"></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeTaskModal">Cancel</button>
+                <button class="btn-custom" id="saveTaskBtn">Save Task</button>
+            </div>
+        </div>
+    </div>
 
-        // Your Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyB0b-ojel3D_gsVg7dqv44BD0rVpacHhW0",
-            authDomain: "express-capital-webhook.firebaseapp.com",
-            projectId: "express-capital-webhook",
-            storageBucket: "express-capital-webhook.firebasestorage.app",
-            messagingSenderId: "163338622500",
-            appId: "1:163338622500:web:f62cd0a2379ff45e03aab1",
-            measurementId: "G-RF71N8KHB7"
-        };
-        
-        const __app_id = "default-app-id";
-        const __initial_auth_token = undefined;
+    <div id="savedItemsModal" class="custom-modal hidden">
+        <div class="custom-modal-content">
+            <h3 id="savedItemsTitle" class="text-xl font-bold mb-4">Saved Events</h3>
+            <div class="scrollable-content-container">
+                <div id="savedItemsList" class="space-y-4"></div>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeSavedItemsModal">Close</button>
+            </div>
+        </div>
+    </div>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    <div id="blockModal" class="custom-modal hidden">
+        <div class="custom-modal-content">
+            <h3 class="text-xl font-bold mb-4">Block Time</h3>
+            <div class="mb-4">
+                <label for="blockDateSelector" class="block mb-2 text-sm font-medium text-gray-700">Select Date to Block:</label>
+                <input type="date" id="blockDateSelector" class="w-full p-2 border rounded-md">
+            </div>
+            <div class="flex items-center mb-4">
+                <button id="blockFullDayBtn" class="btn-custom bg-red-500 hover:bg-red-600">🛑 Block Full Day</button>
+            </div>
+            <div class="mb-4">
+                <label for="blockStartTime" class="block mb-2 text-sm font-medium text-gray-700">Start Time:</label>
+                <select id="blockStartTime" class="w-full p-2 border rounded-md"></select>
+            </div>
+            <div class="mb-4">
+                <label for="blockEndTime" class="block mb-2 text-sm font-medium text-gray-700">End Time:</label>
+                <select id="blockEndTime" class="w-full p-2 border rounded-md"></select>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeBlockModal">Cancel</button>
+                <button class="btn-custom" id="saveBlockBtn">Save Block</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="unblockModal" class="custom-modal hidden">
+        <div class="custom-modal-content">
+            <h3 class="text-xl font-bold mb-4">Unblock Time</h3>
+            <div class="mb-4">
+                <label for="unblockDateSelector" class="block mb-2 text-sm font-medium text-gray-700">Select Date to Unblock:</label>
+                <input type="date" id="unblockDateSelector" class="w-full p-2 border rounded-md">
+            </div>
+            <div class="flex justify-center mt-4 mb-4">
+                <button id="showBlockedTimesBtn" class="btn-custom">Show Blocked Times</button>
+            </div>
+            <div class="scrollable-content-container">
+                <div id="unblockTimesList" class="space-y-2 mb-4"></div>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeUnblockModal">Close</button>
+            </div>
+        </div>
+    </div>
+    <div class="footer flex justify-center items-center mt-8 rounded-lg">
+        <button id="adminLoginBtn" class="lock-btn">🔐</button>
+        <button id="exitAdminBtn" class="lock-btn hidden">🔓</button>
+    </div>
 
-        let userId = null;
-        let isAuthReady = false;
+<script>
+    const calendarEl = document.getElementById('calendar');
+    const currentMonthYearEl = document.getElementById('currentMonthYear');
+    const prevMonthBtn = document.getElementById('prevMonth');
+    const nextMonthBtn = document.getElementById('nextMonth');
+    const appointmentModal = document.getElementById('appointmentModal');
+    const eventModal = document.getElementById('eventModal');
+    const taskModal = document.getElementById('taskModal');
+    const savedItemsModal = document.getElementById('savedItemsModal');
+    const appointmentPurposeEl = document.getElementById('appointmentPurpose');
+    const eventTypeEl = document.getElementById('eventType');
+    const otherEventContainer = document.getElementById('otherEventContainer');
+    const otherTaskContainer = document.getElementById('otherTaskContainer');
+    const taskTypeEl = document.getElementById('taskType');
+    const eventTimeEl = document.getElementById('eventTime');
+    const eventCommentsEl = document.getElementById('eventComments');
+    const savedItemsList = document.getElementById('savedItemsList');
+    const viewAppointmentsBtn = document.getElementById('viewAppointmentsBtn');
+    const viewEventsBtn = document.getElementById('viewEventsBtn');
+    const blockBtn = document.getElementById('blockBtn');
+    const unblockBtn = document.getElementById('unblockBtn');
+    const blockModal = document.getElementById('blockModal');
+    const unblockModal = document.getElementById('unblockModal');
+    const blockDateSelector = document.getElementById('blockDateSelector');
+    const blockFullDayBtn = document.getElementById('blockFullDayBtn');
+    const blockStartTimeEl = document.getElementById('blockStartTime');
+    const blockEndTimeEl = document.getElementById('blockEndTime');
+    const saveBlockBtn = document.getElementById('saveBlockBtn');
+    const unblockDateSelector = document.getElementById('unblockDateSelector');
+    const showBlockedTimesBtn = document.getElementById('showBlockedTimesBtn');
+    const unblockTimesList = document.getElementById('unblockTimesList');
+    const bellEmojiEl = document.getElementById('bell-emoji');
+    const adminLoginBtn = document.getElementById('adminLoginBtn');
+    const exitAdminBtn = document.getElementById('exitAdminBtn');
+    const adminButtons = document.querySelectorAll('.admin-button');
 
-        const appointmentModal = document.getElementById('appointmentModal');
-        const eventModal = document.getElementById('eventModal');
-        const taskModal = document.getElementById('taskModal');
-        const savedItemsModal = document.getElementById('savedItemsModal');
-        const appointmentPurposeEl = document.getElementById('appointmentPurpose');
-        const eventTypeEl = document.getElementById('eventType');
-        const otherEventContainer = document.getElementById('otherEventContainer');
-        const otherTaskContainer = document.getElementById('otherTaskContainer');
-        const taskTypeEl = document.getElementById('taskType');
-        const eventTimeEl = document.getElementById('eventTime');
-        const eventCommentsEl = document.getElementById('eventComments');
-        const savedItemsList = document.getElementById('savedItemsList');
-        const viewAppointmentsBtn = document.getElementById('viewAppointmentsBtn');
-        const viewEventsBtn = document.getElementById('viewEventsBtn');
-        const blockBtn = document.getElementById('blockBtn');
-        const unblockBtn = document.getElementById('unblockBtn');
-        const blockModal = document.getElementById('blockModal');
-        const unblockModal = document.getElementById('unblockModal');
-        const blockDateSelector = document.getElementById('blockDateSelector');
-        const blockFullDayBtn = document.getElementById('blockFullDayBtn');
-        const blockStartTimeEl = document.getElementById('blockStartTime');
-        const blockEndTimeEl = document.getElementById('blockEndTime');
-        const saveBlockBtn = document.getElementById('saveBlockBtn');
-        const unblockDateSelector = document.getElementById('unblockDateSelector');
-        const showBlockedTimesBtn = document.getElementById('showBlockedTimesBtn');
-        const unblockTimesList = document.getElementById('unblockTimesList');
-        const bellEmojiEl = document.getElementById('bell-emoji');
-        const adminLoginBtn = document.getElementById('adminLoginBtn');
-        const exitAdminBtn = document.getElementById('exitAdminBtn');
-        const adminButtons = document.querySelectorAll('.admin-button');
-        const customAlertModal = document.getElementById('customAlertModal');
-        const customAlertMessage = document.getElementById('customAlertMessage');
-        const customAlertCloseBtn = document.getElementById('customAlertCloseBtn');
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+    let selectedDate = null;
+    let savedEvents = JSON.parse(localStorage.getItem('savedEvents')) || [];
+    let savedTasks = JSON.parse(localStorage.getItem('savedTasks')) || [];
+    let blockedTimes = JSON.parse(localStorage.getItem('blockedTimes')) || [];
+    let savedAppointments = JSON.parse(localStorage.getItem('savedAppointments')) || [];
+    let notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks')) || {};
+    const bellSound = new Audio('uplifting_bell.wav');
 
-        let savedEvents = [];
-        let savedTasks = [];
-        let blockedTimes = [];
-        let savedAppointments = [];
-        let notifiedTasks = {};
-
-        // Function to show a custom alert modal
-        function showCustomAlert(message) {
-            customAlertMessage.textContent = message;
-            openModal('customAlertModal');
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'custom-backdrop';
+            backdrop.id = 'modalBackdrop';
+            document.body.appendChild(backdrop);
+            modal.classList.remove('hidden');
+            modal.classList.add('open');
         }
+    }
 
-        // Function to show a custom confirmation modal
-        function showCustomConfirm(message, onConfirm) {
-            document.getElementById('customConfirmMessage').textContent = message;
-            document.getElementById('customConfirmConfirmBtn').onclick = () => {
-                onConfirm();
-                closeModal('customConfirmModal');
-            };
-            openModal('customConfirmModal');
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        const backdrop = document.getElementById('modalBackdrop');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('open');
         }
+        if (backdrop) {
+            backdrop.remove();
+        }
+    }
 
-        function openModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                const backdrop = document.createElement('div');
-                backdrop.className = 'custom-backdrop';
-                backdrop.id = 'modalBackdrop';
-                document.body.appendChild(backdrop);
-                modal.classList.remove('hidden');
-                modal.classList.add('open');
+    // New event listeners to handle closing modals when the backdrop is clicked
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'modalBackdrop') {
+            const openModals = document.querySelectorAll('.custom-modal:not(.hidden)');
+            openModals.forEach(modal => {
+                closeModal(modal.id);
+            });
+        }
+    });
+
+    adminLoginBtn.addEventListener('click', () => {
+        const password = prompt("Please enter the password to unlock admin features. Type 'forget' to reset.");
+        if (password === 'admin123') {
+            adminButtons.forEach(btn => btn.classList.remove('hidden'));
+            exitAdminBtn.classList.remove('hidden');
+            adminLoginBtn.classList.add('hidden');
+        } else if (password === 'forget') {
+            const newPassword = prompt("Please enter a new password:");
+            if (newPassword) {
+                alert('Password cannot be changed in this version.');
             }
+        } else if (password !== null) {
+            alert('Incorrect password.');
+        }
+    });
+    
+    exitAdminBtn.addEventListener('click', () => {
+        adminButtons.forEach(btn => btn.classList.add('hidden'));
+        exitAdminBtn.classList.add('hidden');
+        adminLoginBtn.classList.remove('hidden');
+    });
+
+    function generateCalendar(month, year) {
+        calendarEl.innerHTML = `
+            <div class="text-gray-500">Sun</div>
+            <div class="text-gray-500">Mon</div>
+            <div class="text-gray-500">Tue</div>
+            <div class="text-gray-500">Wed</div>
+            <div class="text-gray-500">Thu</div>
+            <div class="text-gray-500">Fri</div>
+            <div class="text-gray-500">Sat</div>
+        `;
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+        currentMonthYearEl.textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+        for (let i = 0; i < firstDay; i++) {
+            const emptyCell = document.createElement('div');
+            calendarEl.appendChild(emptyCell);
         }
 
-        function closeModal(modalId) {
-            const modal = document.getElementById(modalId);
-            const backdrop = document.getElementById('modalBackdrop');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('open');
-            }
-            if (backdrop) {
-                backdrop.remove();
-            }
-        }
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = `p-2 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors duration-200`;
+            dayCell.textContent = day;
 
-        // New event listeners to handle closing modals when the backdrop is clicked
-        document.addEventListener('click', function(e) {
-            if (e.target.id === 'modalBackdrop') {
-                const openModals = document.querySelectorAll('.custom-modal.open');
-                openModals.forEach(modal => {
-                    closeModal(modal.id);
-                });
-            }
-        });
-
-        // Event listener for the custom alert close button
-        if (customAlertCloseBtn) {
-            customAlertCloseBtn.addEventListener('click', () => closeModal('customAlertModal'));
-        }
-
-        // Event listener for the custom confirm close button
-        if (document.getElementById('customConfirmCancelBtn')) {
-            document.getElementById('customConfirmCancelBtn').addEventListener('click', () => closeModal('customConfirmModal'));
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-            } else {
-                userId = crypto.randomUUID();
-            }
-            isAuthReady = true;
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
-            // Set up real-time listeners for all collections
-            onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/appointments`), (snapshot) => {
-                savedAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            });
-            onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/events`), (snapshot) => {
-                savedEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            });
-            onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/tasks`), (snapshot) => {
-                savedTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            });
-            onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/blocked`), (snapshot) => {
-                blockedTimes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            });
-        });
+            if (isCurrentMonth && day < today.getDate()) {
+                dayCell.classList.add('past-day');
+                dayCell.classList.remove('cursor-pointer', 'hover:bg-blue-100');
+            }
 
-        // Initialize FullCalendar
-        document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth'
+            const isBlocked = blockedTimes.some(b => b.date === dateStr && b.time === 'full-day');
+            
+            if (isBlocked) {
+                dayCell.classList.add('blocked-day');
+                dayCell.classList.remove('cursor-pointer', 'hover:bg-blue-100');
+                dayCell.title = "This day is blocked";
+            }
+            
+            const hasAppointment = savedAppointments.some(appt => appt.date === dateStr);
+            if (hasAppointment) {
+                dayCell.classList.add('bg-blue-appointment');
+                dayCell.title = 'Has a saved appointment';
+            }
+
+            const hasEvent = savedEvents.some(event => event.date === dateStr);
+            if (hasEvent) {
+                dayCell.classList.add('bg-green-task');
+                dayCell.title = 'Has a saved event';
+            }
+
+            const hasTask = savedTasks.some(task => task.date === dateStr);
+            if (hasTask) {
+                dayCell.classList.add('bg-green-task');
+                dayCell.title = 'Has a saved task';
+            }
+
+            dayCell.addEventListener('click', () => {
+                if (dayCell.classList.contains('past-day') || isBlocked) return;
+                selectedDate = dateStr;
+                const isAdmin = !adminLoginBtn.classList.contains('hidden');
+                if (isAdmin) {
+                    openModal('appointmentModal');
+                    generateTimeOptions(document.getElementById('appointmentTime'), 9, 21, selectedDate);
+                } else {
+                    openModal('eventModal');
+                    generateTimeOptions(eventTimeEl, 9, 21, selectedDate);
+                }
             });
-            calendar.render();
-        });
 
-        document.getElementById('saveAppointmentBtn').addEventListener('click', () => saveItem('appointment'));
-        document.getElementById('saveEventBtn').addEventListener('click', () => saveItem('event'));
-        document.getElementById('saveTaskBtn').addEventListener('click', () => saveItem('task'));
+            calendarEl.appendChild(dayCell);
+        }
+    }
 
-        async function saveItem(type) {
-            if (!userId) {
-                showCustomAlert('User not authenticated. Please wait and try again.');
+    function generateTimeOptions(selectElement, startHour, endHour, date) {
+        selectElement.innerHTML = '';
+        const today = new Date();
+        const selectedDateObj = new Date(date);
+        const isToday = today.getDate() === selectedDateObj.getDate() && today.getMonth() === selectedDateObj.getMonth() && today.getFullYear() === selectedDateObj.getFullYear();
+        const currentHour = today.getHours();
+        
+        for (let hour = startHour; hour <= endHour; hour++) {
+            if (isToday && hour <= currentHour) {
+                continue;
+            }
+            const formattedHour = String(hour).padStart(2, '0');
+            const timeValue = `${formattedHour}:00`;
+            
+            const isBlocked = blockedTimes.some(block => {
+                if (block.date !== date) return false;
+                if (block.time === 'full-day') return true;
+                if (block.startTime && block.endTime) {
+                    const start = parseInt(block.startTime.split(':')[0]);
+                    const end = parseInt(block.endTime.split(':')[0]);
+                    return hour >= start && hour < end;
+                }
+                return false;
+            });
+            
+            if (!isBlocked) {
+                const option = document.createElement('option');
+                option.value = timeValue;
+                option.textContent = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
+                selectElement.appendChild(option);
+            }
+        }
+    }
+    
+    function showSavedItems(items, title) {
+        document.getElementById('savedItemsTitle').textContent = `Saved ${title}`;
+        savedItemsList.innerHTML = '';
+        if (items.length === 0) {
+            savedItemsList.innerHTML = '<p class="text-center text-gray-500">No saved items.</p>';
+        } else {
+            items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'bg-gray-100 p-3 rounded-md flex justify-between items-center';
+                let displayText = '';
+                if (title === 'Appointments') {
+                    displayText = `${item.date} @ ${item.time}: ${item.name} (${item.phone}) - ${item.purpose}` + (item.comments ? ` Comments: ${item.comments}` : '');
+                } else if (title === 'Events') {
+                    displayText = `${item.date} @ ${item.time}: ${item.type}` + (item.details ? ` (${item.details})` : '') + (item.comments ? ` - Comments: ${item.comments}` : '');
+                } else if (title === 'Tasks') {
+                    displayText = `${item.date}: ${item.taskType}` + (item.details ? ` (${item.details})` : '');
+                }
+                
+                itemEl.innerHTML = `<span class="flex-1">${displayText}</span>`;
+
+                const actionsEl = document.createElement('div');
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'text-blue-500 hover:text-blue-700 mr-2';
+                editBtn.innerHTML = '✏️';
+                editBtn.onclick = () => editItem(item.id, title.toLowerCase().slice(0, -1));
+                actionsEl.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-red-500 hover:text-red-700';
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.onclick = () => deleteItem(item.id, title.toLowerCase().slice(0, -1));
+                actionsEl.appendChild(deleteBtn);
+
+                itemEl.appendChild(actionsEl);
+                savedItemsList.appendChild(itemEl);
+            });
+        }
+        openModal('savedItemsModal');
+    }
+
+    document.getElementById('closeAppointmentModal').addEventListener('click', () => closeModal('appointmentModal'));
+    document.getElementById('closeEventModal').addEventListener('click', () => closeModal('eventModal'));
+    document.getElementById('closeTaskModal').addEventListener('click', () => closeModal('taskModal'));
+    document.getElementById('closeSavedItemsModal').addEventListener('click', () => closeModal('savedItemsModal'));
+    document.getElementById('closeBlockModal').addEventListener('click', () => closeModal('blockModal'));
+    document.getElementById('closeUnblockModal').addEventListener('click', () => closeModal('unblockModal'));
+
+    eventTypeEl.addEventListener('change', (e) => {
+        otherEventContainer.classList.toggle('hidden', e.target.value !== 'other');
+    });
+
+    function resetAppointmentForm() {
+        document.getElementById('appointmentTime').value = '';
+        document.getElementById('appointmentName').value = '';
+        document.getElementById('appointmentPhone').value = '';
+        document.getElementById('appointmentPurpose').value = 'regularhaircut';
+        document.getElementById('appointmentComments').value = '';
+    }
+
+    document.getElementById('submitAppointmentBtn').addEventListener('click', () => {
+        const editId = document.getElementById('submitAppointmentBtn').dataset.editId;
+        const appointmentTime = document.getElementById('appointmentTime').value;
+        const name = document.getElementById('appointmentName').value.trim();
+        const phone = document.getElementById('appointmentPhone').value.trim();
+        const purpose = document.getElementById('appointmentPurpose').value;
+        const comments = document.getElementById('appointmentComments').value.trim();
+
+        if (!name || !phone) {
+            return alert('Please enter your name and phone number.');
+        }
+
+        if (editId) {
+            const itemIndex = savedAppointments.findIndex(item => item.id == editId);
+            if (itemIndex > -1) {
+                savedAppointments[itemIndex].date = selectedDate;
+                savedAppointments[itemIndex].time = appointmentTime;
+                savedAppointments[itemIndex].name = name;
+                savedAppointments[itemIndex].phone = phone;
+                savedAppointments[itemIndex].purpose = purpose;
+                savedAppointments[itemIndex].comments = comments;
+                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                alert('Appointment successfully updated!');
+                showSavedItems(savedAppointments, 'Appointments');
+            }
+            delete document.getElementById('submitAppointmentBtn').dataset.editId;
+        } else {
+            if (!selectedDate) return alert('Please select a date on the calendar first.');
+            const newAppointment = {
+                id: Date.now(),
+                date: selectedDate,
+                time: appointmentTime,
+                name: name,
+                phone: phone,
+                purpose: purpose,
+                comments: comments
+            };
+            savedAppointments.push(newAppointment);
+            localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+            alert('Appointment submitted!');
+        }
+        closeModal('appointmentModal');
+        resetAppointmentForm();
+        generateCalendar(currentMonth, currentYear);
+    });
+
+    document.getElementById('saveEventBtn').addEventListener('click', () => {
+        const editId = document.getElementById('saveEventBtn').dataset.editId;
+        const eventType = eventTypeEl.value;
+        const eventTime = eventTimeEl.value;
+        const details = eventType === 'other' ? document.getElementById('otherEvent').value.trim() : '';
+        const comments = eventCommentsEl.value.trim();
+
+        if (eventType === 'other' && !details) {
+            return alert('Please describe the event.');
+        }
+
+        if (editId) {
+            const itemIndex = savedEvents.findIndex(item => item.id == editId);
+            if (itemIndex > -1) {
+                savedEvents[itemIndex].date = selectedDate;
+                savedEvents[itemIndex].time = eventTime;
+                savedEvents[itemIndex].type = eventType;
+                savedEvents[itemIndex].details = details;
+                savedEvents[itemIndex].comments = comments;
+                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                alert('Event successfully updated!');
+                showSavedItems(savedEvents, 'Events');
+            }
+            delete document.getElementById('saveEventBtn').dataset.editId;
+        } else {
+            if (!selectedDate) return alert('Please select a date on the calendar first.');
+            const newEvent = {
+                id: Date.now(),
+                date: selectedDate,
+                time: eventTime,
+                type: eventType,
+                details: details,
+                comments: comments
+            };
+            savedEvents.push(newEvent);
+            localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+            alert('Event saved!');
+        }
+        closeModal('eventModal');
+        generateCalendar(currentMonth, currentYear);
+    });
+
+    prevMonthBtn.addEventListener('click', () => {
+        currentMonth--;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
+        generateCalendar(currentMonth, currentYear);
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+        currentMonth++;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        generateCalendar(currentMonth, currentYear);
+    });
+
+    viewAppointmentsBtn.addEventListener('click', () => {
+        showSavedItems(savedAppointments, 'Appointments');
+    });
+
+    viewEventsBtn.addEventListener('click', () => {
+        showSavedItems(savedEvents, 'Events');
+    });
+
+    blockBtn.addEventListener('click', () => {
+        openModal('blockModal');
+        generateTimeOptions(blockStartTimeEl, 9, 21);
+        generateTimeOptions(blockEndTimeEl, 9, 21);
+    });
+
+    unblockBtn.addEventListener('click', () => {
+        openModal('unblockModal');
+        unblockDateSelector.value = '';
+        unblockTimesList.innerHTML = '<p class="text-center text-gray-500">Select a date to see blocked times.</p>';
+    });
+
+    showBlockedTimesBtn.addEventListener('click', () => {
+        const date = unblockDateSelector.value;
+        if (!date) {
+            unblockTimesList.innerHTML = '<p class="text-center text-red-500">Please select a date.</p>';
+            return;
+        }
+        
+        const blockedTimesForDate = blockedTimes.filter(b => b.date === date);
+        unblockTimesList.innerHTML = '';
+        if (blockedTimesForDate.length === 0) {
+            unblockTimesList.innerHTML = '<p class="text-center text-gray-500">No blocked times for this date.</p>';
+        } else {
+            blockedTimesForDate.forEach(block => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'bg-gray-100 p-3 rounded-md flex justify-between items-center';
+                let displayText = '';
+                if (block.time === 'full-day') {
+                    displayText = 'Full Day';
+                } else {
+                    displayText = `${block.startTime} to ${block.endTime}`;
+                }
+                
+                itemEl.innerHTML = `<span class="flex-1">${displayText}</span>`;
+                const unblockButton = document.createElement('button');
+                unblockButton.className = 'text-red-500 hover:text-red-700';
+                unblockButton.innerHTML = '🗑️';
+                unblockButton.onclick = () => deleteBlockedTime(block.id);
+                itemEl.appendChild(unblockButton);
+                unblockTimesList.appendChild(itemEl);
+            });
+        }
+    });
+
+    blockFullDayBtn.addEventListener('click', () => {
+        const date = blockDateSelector.value;
+        if (!date) return alert('Please select a date.');
+        
+        const newBlock = {
+            id: Date.now(),
+            date: date,
+            time: 'full-day'
+        };
+        blockedTimes.push(newBlock);
+        localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+        alert('Full day blocked successfully!');
+        closeModal('blockModal');
+        generateCalendar(currentMonth, currentYear);
+    });
+
+    document.getElementById('saveBlockBtn').addEventListener('click', () => {
+        const date = blockDateSelector.value;
+        const startTime = blockStartTimeEl.value;
+        const endTime = blockEndTimeEl.value;
+
+        if (!date || !startTime || !endTime) {
+            return alert('Please select a date, start time, and end time.');
+        }
+
+        const newBlock = {
+            id: Date.now(),
+            date: date,
+            startTime: startTime,
+            endTime: endTime
+        };
+        blockedTimes.push(newBlock);
+        localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+        alert('Time blocked successfully!');
+        closeModal('blockModal');
+        generateCalendar(currentMonth, currentYear);
+    });
+
+    function deleteBlockedTime(id) {
+        blockedTimes = blockedTimes.filter(b => b.id !== id);
+        localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+        alert('Blocked time removed.');
+        closeModal('unblockModal');
+        generateCalendar(currentMonth, currentYear);
+    }
+
+    window.deleteItem = function(id, type) {
+        if (confirm('Are you sure you want to delete this item?')) {
+            if (type === 'event') {
+                savedEvents = savedEvents.filter(e => e.id !== id);
+                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+            } else if (type === 'task') {
+                savedTasks = savedTasks.filter(t => t.id !== id);
+                localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
+            } else if (type === 'appointment') {
+                savedAppointments = savedAppointments.filter(a => a.id !== id);
+                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+            }
+            // Close the current modal before showing the updated list to prevent overlay issues
+            closeModal('savedItemsModal');
+            showSavedItems(type === 'event' ? savedEvents : savedAppointments, type === 'event' ? 'Events' : 'Appointments');
+            generateCalendar(currentMonth, currentYear);
+        }
+    };
+
+    window.editItem = function(id, type) {
+        // Fix: Close the saved items modal before opening the edit modal
+        closeModal('savedItemsModal');
+
+        if (type === 'event') {
+            const item = savedEvents.find(e => e.id === id);
+            if (!item) return;
+
+            selectedDate = item.date;
+            openModal('eventModal');
+            generateTimeOptions(eventTimeEl, 9, 21, selectedDate);
+            
+            eventTypeEl.value = item.type;
+            if (item.type === 'other') {
+                otherEventContainer.classList.remove('hidden');
+                document.getElementById('otherEvent').value = item.details;
+            } else {
+                otherEventContainer.classList.add('hidden');
+            }
+
+            eventTimeEl.value = item.time;
+            eventCommentsEl.value = item.comments || '';
+            document.getElementById('saveEventBtn').dataset.editId = id;
+
+        } else if (type === 'appointment') {
+            const item = savedAppointments.find(a => a.id === id);
+            if (!item) return;
+
+            selectedDate = item.date;
+            openModal('appointmentModal');
+            generateTimeOptions(document.getElementById('appointmentTime'), 9, 21, selectedDate);
+
+            document.getElementById('appointmentName').value = item.name;
+            document.getElementById('appointmentPhone').value = item.phone;
+            document.getElementById('appointmentPurpose').value = item.purpose;
+            document.getElementById('appointmentComments').value = item.comments || '';
+            document.getElementById('appointmentTime').value = item.time;
+            document.getElementById('submitAppointmentBtn').dataset.editId = id;
+        }
+    };
+
+    function showBellNotification() {
+        bellEmojiEl.classList.remove('hidden');
+        bellEmojiEl.classList.add('bell-ring-animation');
+        bellSound.play();
+        setTimeout(() => {
+            bellEmojiEl.classList.remove('bell-ring-animation');
+            bellEmojiEl.classList.add('hidden');
+        }, 3000);
+    }
+
+    function checkNotifications() {
+        const now = new Date();
+
+        savedTasks.forEach(task => {
+            if (!task.date) return;
+            const taskDateTimeStr = `${task.date}T${task.time || '00:00'}:00`;
+            const taskDate = new Date(taskDateTimeStr);
+            
+            if (isNaN(taskDate.getTime())) {
+                console.error('Invalid task date:', task);
                 return;
             }
-            
-            const item = {
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                timestamp: new Date().toISOString()
-            };
 
-            const collections = {
-                'appointment': { purpose: 'appointmentPurpose', comments: 'appointmentComments' },
-                'event': { purpose: 'eventType', comments: 'eventComments' },
-                'task': { purpose: 'taskType', comments: 'taskComments' }
-            };
+            const timeUntilTask = taskDate.getTime() - now.getTime();
+            const hoursUntilTask = timeUntilTask / (1000 * 60 * 60);
 
-            const purposeEl = document.getElementById(collections[type].purpose);
-            const commentsEl = document.getElementById(collections[type].comments);
-
-            if (purposeEl) item.purpose = purposeEl.value;
-            if (commentsEl) item.comments = commentsEl.value;
-
-            try {
-                const docRef = await addDoc(collection(db, `/artifacts/${__app_id}/users/${userId}/${type}s`), item);
-                showCustomAlert(`${type} saved successfully!`);
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showCustomAlert(`Failed to save ${type}. Please try again.`);
+            if (hoursUntilTask <= 12 && hoursUntilTask > 11 && !notifiedTasks[`${task.id}-12h`]) {
+                const message = `🔔 Reminder: You have a task in 12 hours - ${task.taskType}.`;
+                alert(message);
+                showBellNotification();
+                notifiedTasks[`${task.id}-12h`] = true;
+                localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
             }
-            closeModal(`${type}Modal`);
-        }
 
-        document.getElementById('viewAppointmentsBtn').addEventListener('click', () => showSavedItems('appointments'));
-        document.getElementById('viewEventsBtn').addEventListener('click', () => showSavedItems('events'));
-        document.getElementById('viewTasksBtn').addEventListener('click', () => showSavedItems('tasks'));
-        document.getElementById('closeSavedItemsBtn').addEventListener('click', () => closeModal('savedItemsModal'));
-        document.getElementById('closeAppointmentModal').addEventListener('click', () => closeModal('appointmentModal'));
-        document.getElementById('closeEventModal').addEventListener('click', () => closeModal('eventModal'));
-        document.getElementById('closeTaskModal').addEventListener('click', () => closeModal('taskModal'));
-        document.getElementById('closeMainModal').addEventListener('click', () => closeModal('mainModal'));
-        document.getElementById('openAppointmentModal').addEventListener('click', () => { closeModal('mainModal'); openModal('appointmentModal'); });
-        document.getElementById('openEventModal').addEventListener('click', () => { closeModal('mainModal'); openModal('eventModal'); });
-        document.getElementById('openTaskModal').addEventListener('click', () => { closeModal('mainModal'); openModal('taskModal'); });
+            if (hoursUntilTask <= 2 && hoursUntilTask > 1 && !notifiedTasks[`${task.id}-2h`]) {
+                const message = `🔔 Reminder: You have a task in 2 hours - ${task.taskType}.`;
+                alert(message);
+                showBellNotification();
+                notifiedTasks[`${task.id}-2h`] = true;
+                localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
+            }
+        });
+    }
 
-        function showSavedItems(type) {
-            let items = [];
-            if (type === 'appointments') {
-                items = savedAppointments;
-            } else if (type === 'events') {
-                items = savedEvents;
-            } else if (type === 'tasks') {
-                items = savedTasks;
-            }
-            
-            savedItemsList.innerHTML = '';
-            
-            if (items.length === 0) {
-                savedItemsList.innerHTML = `<p class="text-gray-500">No saved ${type} found.</p>`;
-            } else {
-                items.forEach(item => {
-                    const itemEl = document.createElement('div');
-                    itemEl.className = 'p-4 border rounded-lg shadow-sm mb-4';
-                    
-                    let content = `
-                        <p><strong>Date:</strong> ${item.date}</p>
-                        <p><strong>Time:</strong> ${item.time}</p>
-                        <p><strong>Purpose:</strong> ${item.purpose || 'N/A'}</p>
-                    `;
-                    
-                    if (item.comments) {
-                        content += `<p><strong>Comments:</strong> ${item.comments}</p>`;
-                    }
-                    
-                    itemEl.innerHTML = content;
-                    savedItemsList.appendChild(itemEl);
-                });
-            }
-            openModal('savedItemsModal');
-        }
-    </script>
+    setInterval(checkNotifications, 60000);
+    checkNotifications();
+    generateCalendar(currentMonth, currentYear);
+</script>
 </body>
 </html>

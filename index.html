@@ -247,6 +247,8 @@
             background-color: #a8f0a8;
         }
     </style>
+    
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js'></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -314,9 +316,6 @@
         const customAlertMessage = document.getElementById('customAlertMessage');
         const customAlertCloseBtn = document.getElementById('customAlertCloseBtn');
 
-        let currentMonth = new Date().getMonth();
-        let currentYear = new Date().getFullYear();
-        let selectedDate = null;
         let savedEvents = [];
         let savedTasks = [];
         let blockedTimes = [];
@@ -391,131 +390,42 @@
             }
             isAuthReady = true;
             document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
+
             // Set up real-time listeners for all collections
             onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/appointments`), (snapshot) => {
                 savedAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                generateCalendar(currentMonth, currentYear);
             });
             onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/events`), (snapshot) => {
                 savedEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                generateCalendar(currentMonth, currentYear);
             });
             onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/tasks`), (snapshot) => {
                 savedTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                generateCalendar(currentMonth, currentYear);
             });
             onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/blocked`), (snapshot) => {
                 blockedTimes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                generateCalendar(currentMonth, currentYear);
             });
         });
 
-        function getDaysInMonth(month, year) {
-            return new Date(year, month + 1, 0).getDate();
-        }
-
-        function getFirstDayOfMonth(month, year) {
-            return new Date(year, month, 1).getDay();
-        }
-
-        function generateCalendar(month, year) {
-            const daysInMonth = getDaysInMonth(month, year);
-            const firstDay = getFirstDayOfMonth(month, year);
-
-            currentMonthYearEl.textContent = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
-
-            calendarEl.innerHTML = '';
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            dayNames.forEach(day => {
-                const dayHeader = document.createElement('div');
-                dayHeader.textContent = day;
-                dayHeader.className = 'font-bold text-gray-700';
-                calendarEl.appendChild(dayHeader);
+        // Initialize FullCalendar
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth'
             });
-
-            for (let i = 0; i < firstDay; i++) {
-                const emptyDay = document.createElement('div');
-                calendarEl.appendChild(emptyDay);
-            }
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayEl = document.createElement('div');
-                const currentDate = new Date(year, month, day);
-                dayEl.textContent = day;
-                dayEl.className = 'p-2 border rounded-md cursor-pointer transition-colors';
-
-                if (isBlocked(currentDate)) {
-                    dayEl.classList.add('blocked-day');
-                } else if (isPastDate(currentDate)) {
-                    dayEl.classList.add('past-day');
-                    dayEl.style.cursor = 'not-allowed';
-                } else {
-                    dayEl.classList.add('hover:bg-gray-200');
-                    dayEl.addEventListener('click', () => selectDay(currentDate));
-                }
-                
-                if (hasItem(currentDate)) {
-                    dayEl.classList.add('bg-blue-300');
-                }
-
-                calendarEl.appendChild(dayEl);
-            }
-        }
-
-        function isBlocked(date) {
-            return blockedTimes.some(b => {
-                const blockedDate = new Date(b.date);
-                return blockedDate.getFullYear() === date.getFullYear() &&
-                       blockedDate.getMonth() === date.getMonth() &&
-                       blockedDate.getDate() === date.getDate();
-            });
-        }
-
-        function hasItem(date) {
-            return savedAppointments.some(a => {
-                const apptDate = new Date(a.date);
-                return apptDate.getFullYear() === date.getFullYear() &&
-                       apptDate.getMonth() === date.getMonth() &&
-                       apptDate.getDate() === date.getDate();
-            }) || savedEvents.some(e => {
-                const eventDate = new Date(e.date);
-                return eventDate.getFullYear() === date.getFullYear() &&
-                       eventDate.getMonth() === date.getMonth() &&
-                       eventDate.getDate() === date.getDate();
-            }) || savedTasks.some(t => {
-                const taskDate = new Date(t.date);
-                return taskDate.getFullYear() === date.getFullYear() &&
-                       taskDate.getMonth() === date.getMonth() &&
-                       taskDate.getDate() === date.getDate();
-            });
-        }
-
-        function isPastDate(date) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return date < today;
-        }
-
-        function selectDay(date) {
-            if (isPastDate(date) || isBlocked(date)) {
-                return;
-            }
-            selectedDate = date;
-            openModal('mainModal');
-        }
+            calendar.render();
+        });
 
         document.getElementById('saveAppointmentBtn').addEventListener('click', () => saveItem('appointment'));
         document.getElementById('saveEventBtn').addEventListener('click', () => saveItem('event'));
         document.getElementById('saveTaskBtn').addEventListener('click', () => saveItem('task'));
 
         async function saveItem(type) {
-            if (!selectedDate || !userId) {
-                showCustomAlert('Please select a date first.');
+            if (!userId) {
+                showCustomAlert('User not authenticated. Please wait and try again.');
                 return;
             }
             
             const item = {
-                date: selectedDate.toISOString().split('T')[0],
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 timestamp: new Date().toISOString()
             };
@@ -540,7 +450,6 @@
                 showCustomAlert(`Failed to save ${type}. Please try again.`);
             }
             closeModal(`${type}Modal`);
-            generateCalendar(currentMonth, currentYear);
         }
 
         document.getElementById('viewAppointmentsBtn').addEventListener('click', () => showSavedItems('appointments'));
@@ -591,26 +500,6 @@
             openModal('savedItemsModal');
         }
 
-        prevMonthBtn.addEventListener('click', () => {
-            currentMonth--;
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear--;
-            }
-            generateCalendar(currentMonth, currentYear);
-        });
-
-        nextMonthBtn.addEventListener('click', () => {
-            currentMonth++;
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear++;
-            }
-            generateCalendar(currentMonth, currentYear);
-        });
-
-        // Initialize the calendar on page load
-        generateCalendar(currentMonth, currentYear);
     </script>
 </body>
 

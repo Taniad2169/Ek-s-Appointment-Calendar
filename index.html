@@ -151,7 +151,6 @@
             color: #d91d09;
         }
         
-        /* New custom modal and backdrop styles for robust functionality */
         .custom-modal {
             position: fixed;
             top: 0;
@@ -161,8 +160,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 2001; /* Must be higher than backdrop */
-            pointer-events: none; /* Initially non-clickable */
+            z-index: 2001;
+            pointer-events: none;
         }
         .custom-modal.open {
             pointer-events: auto;
@@ -185,7 +184,7 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
-            z-index: 2000; /* Must be behind the modal */
+            z-index: 2000;
         }
 
         .hidden {
@@ -278,10 +277,6 @@
         let userId = null;
         let isAuthReady = false;
 
-        const calendarEl = document.getElementById('calendar');
-        const currentMonthYearEl = document.getElementById('currentMonthYear');
-        const prevMonthBtn = document.getElementById('prevMonth');
-        const nextMonthBtn = document.getElementById('nextMonth');
         const appointmentModal = document.getElementById('appointmentModal');
         const eventModal = document.getElementById('eventModal');
         const taskModal = document.getElementById('taskModal');
@@ -386,11 +381,10 @@
             if (user) {
                 userId = user.uid;
             } else {
-                userId = crypto.randomUUID(); // Fallback for anonymous user
+                userId = crypto.randomUUID();
             }
             isAuthReady = true;
-            document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
-
+            
             // Set up real-time listeners for all collections
             onSnapshot(collection(db, `/artifacts/${__app_id}/users/${userId}/appointments`), (snapshot) => {
                 savedAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -499,8 +493,6 @@
             }
             openModal('savedItemsModal');
         }
-
     </script>
 </body>
-
 </html>

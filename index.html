@@ -280,6 +280,7 @@
     <div class="header">
         <h1 class="text-3xl font-bold relative z-10">Ek's Calendar <span class="red-text">Best Barber in Town</span></h1>
         <h2 class="text-xl relative z-10">Book an appointment</h2>
+        <p class="text-xs text-white relative z-10">Custom calendar designed by Tania Domingue (415)877-0687</p>
         <span class="target-animated" style="left: 10%;">🎯</span>
         <span class="target-animated" style="right: 10%;">🎯</span>
         <span id="bell-emoji" class="bell-animated hidden" style="left: 50%; top: 10px;">🔔</span>
@@ -935,7 +936,8 @@
     function showBellNotification() {
         bellEmojiEl.classList.remove('hidden');
         bellEmojiEl.classList.add('bell-ring-animation');
-        bellSound.play();
+        // Commenting out bell sound as the audio file is not available
+        // bellSound.play();
         setTimeout(() => {
             bellEmojiEl.classList.remove('bell-ring-animation');
             bellEmojiEl.classList.add('hidden');

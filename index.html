@@ -6,9 +6,19 @@
     <title>Personal Calendar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
+        /* This is the fix: We allow the body to scroll normally. */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
             min-height: 100vh;
         }
 
@@ -18,8 +28,8 @@
             padding: 20px;
             text-align: center;
             position: relative;
-            overflow: hidden;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
         .header h1 {
@@ -35,6 +45,78 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
+        /* Responsive Calendar Container now has a flexible height */
+        .calendar-main {
+            flex-grow: 1; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            /* Allow internal scrolling if calendar is taller than the viewport */
+            overflow-y: auto; 
+        }
+        
+        .calendar-wrapper {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 960px; 
+            height: 100%;
+            min-height: 80vh; /* Use min-height to ensure it's always large enough */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            text-align: center;
+            flex-grow: 1;
+        }
+        
+        .calendar-cell {
+            padding: clamp(5px, 2vw, 15px);
+            font-size: clamp(12px, 2vw, 18px);
+            aspect-ratio: 1 / 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #e5e7eb;
+            transition: background-color 0.3s ease;
+        }
+
+        .calendar-cell.hoverable:hover {
+            background-color: #f3f4f6;
+        }
+
+        .week-day-header {
+            color: #6b7280;
+            font-weight: bold;
+            font-size: clamp(12px, 2vw, 16px);
+            padding: 10px 0;
+            background-color: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .past-day {
+            background-color: #e0e0e0;
+            color: #a0a0a0;
+            cursor: not-allowed;
+        }
+
+        .blocked-day {
+            background-color: #ffcccc;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .bg-blue-appointment { background-color: #9de3eb; }
+        .bg-green-task { background-color: #47edcc; }
+
         .target-animated, .bell-animated, .barber-pole-animated, .razor-animated {
             font-size: 2rem;
             position: absolute;
@@ -46,18 +128,9 @@
         }
 
         @keyframes target-move {
-            0% {
-                transform: translateX(-100px);
-                opacity: 0;
-            }
-            50% {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            100% {
-                transform: translateX(100px);
-                opacity: 0;
-            }
+            0% { transform: translateX(-100px); opacity: 0; }
+            50% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(100px); opacity: 0; }
         }
 
         @keyframes bell-ring {
@@ -71,12 +144,8 @@
         }
 
         @keyframes barber-pole-spin {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
-            }
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         @keyframes razor-shave {
@@ -85,12 +154,8 @@
         }
 
         @keyframes zoom-in-out {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.5);
-            }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.5); }
         }
 
         .bell-ring-animation {
@@ -151,23 +216,19 @@
             color: #d91d09;
         }
         
-        /* New custom modal and backdrop styles for robust functionality */
-        .custom-modal {
+        .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 2001; /* Must be higher than backdrop */
-            pointer-events: none; /* Initially non-clickable */
+            z-index: 1000;
         }
-        .custom-modal.open {
-            pointer-events: auto;
-        }
-        .custom-modal-content {
+        .modal-content {
             background-color: white;
             padding: 20px;
             border-radius: 10px;
@@ -176,35 +237,9 @@
             max-width: 500px;
             max-height: 80vh;
             overflow-y: auto;
-            z-index: 2002;
         }
-        .custom-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 2000; /* Must be behind the modal */
-        }
-
         .hidden {
             display: none !important;
-        }
-        .bg-blue-appointment {
-            background-color: #9de3eb;
-        }
-        .bg-green-task {
-            background-color: #47edcc;
-        }
-        .blocked-day {
-            background-color: #ffcccc;
-            color: #888;
-        }
-        .past-day {
-            background-color: #e0e0e0;
-            color: #a0a0a0;
-            cursor: not-allowed;
         }
         .scrollable-content-container {
             max-height: 400px;
@@ -220,32 +255,7 @@
             width: 100%;
             position: relative;
         }
-
-        .calendar-container-wrapper {
-            position: relative;
-            display: flex;
-            width: 100%;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .calendar-frame {
-            position: absolute;
-            height: 100%;
-            width: 10px;
-            background: linear-gradient(to bottom, #d91d09, #097fd9);
-        }
-
-        .calendar-frame-left {
-            left: 0;
-        }
-
-        .calendar-frame-right {
-            right: 0;
-        }
-        .appointment-completed {
-            background-color: #a8f0a8;
-        }
+        
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
@@ -265,48 +275,46 @@
       firebase.initializeApp(firebaseConfig);
     </script>
 </head>
-<body class="p-8">
+<body class="app-container">
 
-    <div class="header relative mb-8 rounded-lg">
+    <div class="header">
         <h1 class="text-3xl font-bold relative z-10">Ek's Calendar <span class="red-text">Best Barber in Town</span></h1>
         <h2 class="text-xl relative z-10">Book an appointment</h2>
-        <p class="text-sm font-bold text-white relative z-10">For a custom calendar design, call Tania Domingue at <a href="tel:4158770687" class="font-bold text-white">(415) 877-0687</a>.</p>
         <span class="target-animated" style="left: 10%;">🎯</span>
         <span class="target-animated" style="right: 10%;">🎯</span>
         <span id="bell-emoji" class="bell-animated hidden" style="left: 50%; top: 10px;">🔔</span>
         <span class="barber-pole-animated">💈</span>
         <span class="razor-animated">🪒</span>
     </div>
-    <div class="calendar-container-wrapper">
-        <div class="calendar-frame calendar-frame-left rounded-l-lg"></div>
-        <div class="bg-white p-6 rounded-lg shadow-lg w-full">
-            <div class="flex justify-between items-center mb-4">
-                <button id="prevMonth" class="month-nav-btn py-1 px-3">&lt;</button>
+
+    <div class="calendar-main">
+        <div class="calendar-wrapper">
+            <div class="flex justify-between items-center p-4">
+                <button id="prevMonth" class="month-nav-btn py-1 px-3 rounded-md">&lt;</button>
                 <h2 id="currentMonthYear" class="text-2xl font-bold"></h2>
-                <button id="nextMonth" class="month-nav-btn py-1 px-3">&gt;</button>
+                <button id="nextMonth" class="month-nav-btn py-1 px-3 rounded-md">&gt;</button>
             </div>
-            <div id="calendar" class="grid grid-cols-7 gap-1 text-center text-sm font-bold">
-                <div class="text-gray-500">Sun</div>
-                <div class="text-gray-500">Mon</div>
-                <div class="text-gray-500">Tue</div>
-                <div class="text-gray-500">Wed</div>
-                <div class="text-gray-500">Thu</div>
-                <div class="text-gray-500">Fri</div>
-                <div class="text-gray-500">Sat</div>
+            <div class="calendar-grid">
+                <div class="week-day-header">Sun</div>
+                <div class="week-day-header">Mon</div>
+                <div class="week-day-header">Tue</div>
+                <div class="week-day-header">Wed</div>
+                <div class="week-day-header">Thu</div>
+                <div class="week-day-header">Fri</div>
+                <div class="week-day-header">Sat</div>
             </div>
         </div>
-        <div class="calendar-frame calendar-frame-right rounded-r-lg"></div>
     </div>
     
-    <div class="flex justify-center space-x-4 mt-8">
+    <div class="flex justify-center space-x-4 p-4">
         <button id="viewAppointmentsBtn" class="btn-custom admin-button hidden">View Appointments</button>
         <button id="viewEventsBtn" class="btn-custom admin-button hidden">Saved Events</button>
         <button id="blockBtn" class="btn-custom admin-button hidden">Block Day/Hours</button>
         <button id="unblockBtn" class="btn-custom admin-button hidden">Unblock Day/Hours</button>
     </div>
     
-    <div id="appointmentModal" class="custom-modal hidden">
-        <div class="custom-modal-content">
+    <div id="appointmentModal" class="modal-overlay hidden">
+        <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Set Appointment</h3>
             <div class="mb-4">
                 <label for="appointmentTime" class="block mb-2 text-sm font-medium text-gray-700">Time:</label>
@@ -323,21 +331,7 @@
             <div class="mb-4">
                 <label for="appointmentPurpose" class="block mb-2 text-sm font-medium text-gray-700">Purpose:</label>
                 <select id="appointmentPurpose" class="w-full p-2 border rounded-md">
-                    <option value="regularhaircut">Regular haircut</option>
-                    <option value="beardtrimsshave">Beard trims & shaves</option>
-                    <option value="fadeslineups">Fades & line-ups</option>
-                    <option value="hairlinescalpcare">Hair-line scalp care</option>
-                    <option value="groomingadvice">Grooming advice</option>
-                    <option value="kidscuts">Kids' cuts</option>
-                    <option value="lowmidhighskinfade">Low/mid/high skin fade</option>
-                    <option value="taper">Taper</option>
-                    <option value="shorterprecisioncuts">Shorter/precision cuts</option>
-                    <option value="buzzcut">Buzz cut</option>
-                    <option value="crewcutivyleague">Crew cut / Ivy league</option>
-                    <option value="pompadour">Pompadour</option>
-                    <option value="flattop">Flat top</option>
-                    <option value="lineupedgeup">Line-up/edge-up</option>
-                    <option value="beardtrimsstyle">Beard trims & style</option>
+                    <option value="select">Select</option>
                 </select>
             </div>
             <div class="mb-4">
@@ -351,8 +345,8 @@
         </div>
     </div>
 
-    <div id="eventModal" class="custom-modal hidden">
-        <div class="custom-modal-content">
+    <div id="eventModal" class="modal-overlay hidden">
+        <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Add Event</h3>
             <div class="mb-4">
                 <label for="eventType" class="block mb-2 text-sm font-medium text-gray-700">Event Type:</label>
@@ -383,8 +377,8 @@
         </div>
     </div>
 
-    <div id="taskModal" class="custom-modal hidden">
-        <div class="custom-modal-content">
+    <div id="taskModal" class="modal-overlay hidden">
+        <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Add Task</h3>
             <div class="mb-4">
                 <label for="taskType" class="block mb-2 text-sm font-medium text-gray-700">Task Type:</label>
@@ -415,8 +409,8 @@
         </div>
     </div>
 
-    <div id="savedItemsModal" class="custom-modal hidden">
-        <div class="custom-modal-content">
+    <div id="savedItemsModal" class="modal-overlay hidden">
+        <div class="modal-content">
             <h3 id="savedItemsTitle" class="text-xl font-bold mb-4">Saved Events</h3>
             <div class="scrollable-content-container">
                 <div id="savedItemsList" class="space-y-4"></div>
@@ -427,8 +421,8 @@
         </div>
     </div>
 
-    <div id="blockModal" class="custom-modal hidden">
-        <div class="custom-modal-content">
+    <div id="blockModal" class="modal-overlay hidden">
+        <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Block Time</h3>
             <div class="mb-4">
                 <label for="blockDateSelector" class="block mb-2 text-sm font-medium text-gray-700">Select Date to Block:</label>
@@ -452,31 +446,26 @@
         </div>
     </div>
     
-    <div id="unblockModal" class="custom-modal hidden">
-        <div class="custom-modal-content">
+    <div id="unblockModal" class="modal-overlay hidden">
+        <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Unblock Time</h3>
             <div class="mb-4">
                 <label for="unblockDateSelector" class="block mb-2 text-sm font-medium text-gray-700">Select Date to Unblock:</label>
                 <input type="date" id="unblockDateSelector" class="w-full p-2 border rounded-md">
             </div>
-            <div class="flex justify-center mt-4 mb-4">
-                <button id="showBlockedTimesBtn" class="btn-custom">Show Blocked Times</button>
-            </div>
-            <div class="scrollable-content-container">
-                <div id="unblockTimesList" class="space-y-2 mb-4"></div>
-            </div>
+            <div id="unblockTimesList" class="space-y-2 mb-4"></div>
             <div class="flex justify-end space-x-2">
                 <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeUnblockModal">Close</button>
             </div>
         </div>
     </div>
-    <div class="footer flex justify-center items-center mt-8 rounded-lg">
+    <div class="footer flex justify-center items-center p-4">
         <button id="adminLoginBtn" class="lock-btn">🔐</button>
         <button id="exitAdminBtn" class="lock-btn hidden">🔓</button>
     </div>
 
 <script>
-    const calendarEl = document.getElementById('calendar');
+    const calendarGridEl = document.querySelector('.calendar-grid');
     const currentMonthYearEl = document.getElementById('currentMonthYear');
     const prevMonthBtn = document.getElementById('prevMonth');
     const nextMonthBtn = document.getElementById('nextMonth');
@@ -504,7 +493,6 @@
     const blockEndTimeEl = document.getElementById('blockEndTime');
     const saveBlockBtn = document.getElementById('saveBlockBtn');
     const unblockDateSelector = document.getElementById('unblockDateSelector');
-    const showBlockedTimesBtn = document.getElementById('showBlockedTimesBtn');
     const unblockTimesList = document.getElementById('unblockTimesList');
     const bellEmojiEl = document.getElementById('bell-emoji');
     const adminLoginBtn = document.getElementById('adminLoginBtn');
@@ -521,40 +509,6 @@
     let notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks')) || {};
     const bellSound = new Audio('uplifting_bell.wav');
 
-    function openModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            const backdrop = document.createElement('div');
-            backdrop.className = 'custom-backdrop';
-            backdrop.id = 'modalBackdrop';
-            document.body.appendChild(backdrop);
-            modal.classList.remove('hidden');
-            modal.classList.add('open');
-        }
-    }
-
-    function closeModal(modalId) {
-        const modal = document.getElementById(modalId);
-        const backdrop = document.getElementById('modalBackdrop');
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('open');
-        }
-        if (backdrop) {
-            backdrop.remove();
-        }
-    }
-
-    // New event listeners to handle closing modals when the backdrop is clicked
-    document.addEventListener('click', function(e) {
-        if (e.target.id === 'modalBackdrop') {
-            const openModals = document.querySelectorAll('.custom-modal:not(.hidden)');
-            openModals.forEach(modal => {
-                closeModal(modal.id);
-            });
-        }
-    });
-
     adminLoginBtn.addEventListener('click', () => {
         const password = prompt("Please enter the password to unlock admin features. Type 'forget' to reset.");
         if (password === 'admin123') {
@@ -564,10 +518,8 @@
         } else if (password === 'forget') {
             const newPassword = prompt("Please enter a new password:");
             if (newPassword) {
-                alert('Password cannot be changed in this version.');
+                console.log('Password cannot be changed in this version.');
             }
-        } else if (password !== null) {
-            alert('Incorrect password.');
         }
     });
     
@@ -578,15 +530,10 @@
     });
 
     function generateCalendar(month, year) {
-        calendarEl.innerHTML = `
-            <div class="text-gray-500">Sun</div>
-            <div class="text-gray-500">Mon</div>
-            <div class="text-gray-500">Tue</div>
-            <div class="text-gray-500">Wed</div>
-            <div class="text-gray-500">Thu</div>
-            <div class="text-gray-500">Fri</div>
-            <div class="text-gray-500">Sat</div>
-        `;
+        while (calendarGridEl.children.length > 7) {
+            calendarGridEl.removeChild(calendarGridEl.lastChild);
+        }
+        
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const today = new Date();
@@ -596,38 +543,33 @@
 
         for (let i = 0; i < firstDay; i++) {
             const emptyCell = document.createElement('div');
-            calendarEl.appendChild(emptyCell);
+            emptyCell.className = `calendar-cell`;
+            calendarGridEl.appendChild(emptyCell);
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dayCell = document.createElement('div');
-            dayCell.className = `p-2 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors duration-200`;
+            dayCell.className = `calendar-cell p-2 rounded-lg cursor-pointer hoverable`;
             dayCell.textContent = day;
 
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             if (isCurrentMonth && day < today.getDate()) {
                 dayCell.classList.add('past-day');
-                dayCell.classList.remove('cursor-pointer', 'hover:bg-blue-100');
+                dayCell.classList.remove('cursor-pointer', 'hoverable');
             }
 
-            const isBlocked = blockedTimes.some(b => b.date === dateStr && b.time === 'full-day');
+            const isBlockedFullDay = blockedTimes.some(b => b.date === dateStr && b.time === 'full-day');
             
-            if (isBlocked) {
+            if (isBlockedFullDay) {
                 dayCell.classList.add('blocked-day');
-                dayCell.classList.remove('cursor-pointer', 'hover:bg-blue-100');
+                dayCell.classList.remove('cursor-pointer', 'hoverable');
                 dayCell.title = "This day is blocked";
-            }
-            
-            const hasAppointment = savedAppointments.some(appt => appt.date === dateStr);
-            if (hasAppointment) {
-                dayCell.classList.add('bg-blue-appointment');
-                dayCell.title = 'Has a saved appointment';
             }
 
             const hasEvent = savedEvents.some(event => event.date === dateStr);
             if (hasEvent) {
-                dayCell.classList.add('bg-green-task');
+                dayCell.classList.add('bg-blue-appointment');
                 dayCell.title = 'Has a saved event';
             }
 
@@ -638,56 +580,61 @@
             }
 
             dayCell.addEventListener('click', () => {
-                if (dayCell.classList.contains('past-day') || isBlocked) return;
+                if (dayCell.classList.contains('past-day') || isBlockedFullDay) return;
                 selectedDate = dateStr;
                 const isAdmin = !adminLoginBtn.classList.contains('hidden');
                 if (isAdmin) {
-                    openModal('appointmentModal');
-                    generateTimeOptions(document.getElementById('appointmentTime'), 9, 21, selectedDate);
+                    resetAndPopulateAppointmentForm();
+                    appointmentModal.classList.remove('hidden');
                 } else {
-                    openModal('eventModal');
-                    generateTimeOptions(eventTimeEl, 9, 21, selectedDate);
+                    eventModal.classList.remove('hidden');
+                    generateTimeOptions(eventTimeEl, 5, 23);
                 }
             });
 
-            calendarEl.appendChild(dayCell);
+            calendarGridEl.appendChild(dayCell);
         }
     }
 
-    function generateTimeOptions(selectElement, startHour, endHour, date) {
+    function generateTimeOptions(selectElement, startHour, endHour) {
         selectElement.innerHTML = '';
-        const today = new Date();
-        const selectedDateObj = new Date(date);
-        const isToday = today.getDate() === selectedDateObj.getDate() && today.getMonth() === selectedDateObj.getMonth() && today.getFullYear() === selectedDateObj.getFullYear();
-        const currentHour = today.getHours();
-        
         for (let hour = startHour; hour <= endHour; hour++) {
-            if (isToday && hour <= currentHour) {
-                continue;
-            }
+            const option = document.createElement('option');
             const formattedHour = String(hour).padStart(2, '0');
-            const timeValue = `${formattedHour}:00`;
-            
-            const isBlocked = blockedTimes.some(block => {
-                if (block.date !== date) return false;
-                if (block.time === 'full-day') return true;
-                if (block.startTime && block.endTime) {
-                    const start = parseInt(block.startTime.split(':')[0]);
-                    const end = parseInt(block.endTime.split(':')[0]);
-                    return hour >= start && hour < end;
-                }
-                return false;
+            option.value = `${formattedHour}:00`;
+            option.textContent = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
+            selectElement.appendChild(option);
+        }
+    }
+
+    function resetAndPopulateAppointmentForm() {
+        document.getElementById('appointmentName').value = '';
+        document.getElementById('appointmentPhone').value = '';
+        document.getElementById('appointmentComments').value = '';
+        document.getElementById('appointmentPurpose').value = 'select';
+        document.getElementById('submitAppointmentBtn').dataset.editId = '';
+
+        const appointmentTimeEl = document.getElementById('appointmentTime');
+        appointmentTimeEl.innerHTML = '';
+        const blockedForThisDay = blockedTimes.filter(b => b.date === selectedDate);
+        for (let hour = 9; hour <= 21; hour++) {
+            const timeStr = `${String(hour).padStart(2, '0')}:00`;
+            const isBlockedFullDay = blockedForThisDay.some(b => b.time === 'full-day');
+            const isBlockedPartial = blockedForThisDay.some(b => {
+                const startHour = parseInt(b.startTime.split(':')[0], 10);
+                const endHour = parseInt(b.endTime.split(':')[0], 10);
+                return hour >= startHour && hour < endHour;
             });
-            
-            if (!isBlocked) {
+
+            if (!isBlockedFullDay && !isBlockedPartial) {
                 const option = document.createElement('option');
-                option.value = timeValue;
+                option.value = timeStr;
                 option.textContent = `${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
-                selectElement.appendChild(option);
+                appointmentTimeEl.appendChild(option);
             }
         }
     }
-    
+
     function showSavedItems(items, title) {
         document.getElementById('savedItemsTitle').textContent = `Saved ${title}`;
         savedItemsList.innerHTML = '';
@@ -726,38 +673,31 @@
                 savedItemsList.appendChild(itemEl);
             });
         }
-        openModal('savedItemsModal');
+        savedItemsModal.classList.remove('hidden');
     }
 
-    document.getElementById('closeAppointmentModal').addEventListener('click', () => closeModal('appointmentModal'));
-    document.getElementById('closeEventModal').addEventListener('click', () => closeModal('eventModal'));
-    document.getElementById('closeTaskModal').addEventListener('click', () => closeModal('taskModal'));
-    document.getElementById('closeSavedItemsModal').addEventListener('click', () => closeModal('savedItemsModal'));
-    document.getElementById('closeBlockModal').addEventListener('click', () => closeModal('blockModal'));
-    document.getElementById('closeUnblockModal').addEventListener('click', () => closeModal('unblockModal'));
+    document.getElementById('closeAppointmentModal').addEventListener('click', () => appointmentModal.classList.add('hidden'));
+    document.getElementById('closeEventModal').addEventListener('click', () => eventModal.classList.add('hidden'));
+    document.getElementById('closeTaskModal').addEventListener('click', () => taskModal.classList.add('hidden'));
+    document.getElementById('closeSavedItemsModal').addEventListener('click', () => savedItemsModal.classList.add('hidden'));
+    document.getElementById('closeBlockModal').addEventListener('click', () => blockModal.classList.add('hidden'));
+    document.getElementById('closeUnblockModal').addEventListener('click', () => unblockModal.classList.add('hidden'));
 
     eventTypeEl.addEventListener('change', (e) => {
         otherEventContainer.classList.toggle('hidden', e.target.value !== 'other');
     });
 
-    function resetAppointmentForm() {
-        document.getElementById('appointmentTime').value = '';
-        document.getElementById('appointmentName').value = '';
-        document.getElementById('appointmentPhone').value = '';
-        document.getElementById('appointmentPurpose').value = 'regularhaircut';
-        document.getElementById('appointmentComments').value = '';
-    }
-
     document.getElementById('submitAppointmentBtn').addEventListener('click', () => {
-        const editId = document.getElementById('submitAppointmentBtn').dataset.editId;
         const appointmentTime = document.getElementById('appointmentTime').value;
         const name = document.getElementById('appointmentName').value.trim();
         const phone = document.getElementById('appointmentPhone').value.trim();
         const purpose = document.getElementById('appointmentPurpose').value;
         const comments = document.getElementById('appointmentComments').value.trim();
+        const editId = document.getElementById('submitAppointmentBtn').dataset.editId;
 
         if (!name || !phone) {
-            return alert('Please enter your name and phone number.');
+            console.error('Please enter your name and phone number.');
+            return;
         }
 
         if (editId) {
@@ -770,12 +710,11 @@
                 savedAppointments[itemIndex].purpose = purpose;
                 savedAppointments[itemIndex].comments = comments;
                 localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
-                alert('Appointment successfully updated!');
+                console.log('Appointment successfully updated!');
                 showSavedItems(savedAppointments, 'Appointments');
             }
             delete document.getElementById('submitAppointmentBtn').dataset.editId;
         } else {
-            if (!selectedDate) return alert('Please select a date on the calendar first.');
             const newAppointment = {
                 id: Date.now(),
                 date: selectedDate,
@@ -787,11 +726,10 @@
             };
             savedAppointments.push(newAppointment);
             localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
-            alert('Appointment submitted!');
+            console.log('Appointment submitted!');
         }
-        closeModal('appointmentModal');
-        resetAppointmentForm();
-        generateCalendar(currentMonth, currentYear);
+
+        appointmentModal.classList.add('hidden');
     });
 
     document.getElementById('saveEventBtn').addEventListener('click', () => {
@@ -802,7 +740,8 @@
         const comments = eventCommentsEl.value.trim();
 
         if (eventType === 'other' && !details) {
-            return alert('Please describe the event.');
+            console.error('Please describe the event.');
+            return;
         }
 
         if (editId) {
@@ -814,12 +753,15 @@
                 savedEvents[itemIndex].details = details;
                 savedEvents[itemIndex].comments = comments;
                 localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
-                alert('Event successfully updated!');
+                console.log('Event successfully updated!');
                 showSavedItems(savedEvents, 'Events');
             }
             delete document.getElementById('saveEventBtn').dataset.editId;
         } else {
-            if (!selectedDate) return alert('Please select a date on the calendar first.');
+            if (!selectedDate) {
+                console.error('Please select a date on the calendar first.');
+                return;
+            }
             const newEvent = {
                 id: Date.now(),
                 date: selectedDate,
@@ -830,9 +772,9 @@
             };
             savedEvents.push(newEvent);
             localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
-            alert('Event saved!');
+            console.log('Event saved!');
         }
-        closeModal('eventModal');
+        eventModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
     });
 
@@ -863,40 +805,22 @@
     });
 
     blockBtn.addEventListener('click', () => {
-        openModal('blockModal');
-        generateTimeOptions(blockStartTimeEl, 9, 21);
-        generateTimeOptions(blockEndTimeEl, 9, 21);
+        blockModal.classList.remove('hidden');
+        generateTimeOptions(blockStartTimeEl, 5, 23);
+        generateTimeOptions(blockEndTimeEl, 5, 23);
     });
 
     unblockBtn.addEventListener('click', () => {
-        openModal('unblockModal');
-        unblockDateSelector.value = '';
-        unblockTimesList.innerHTML = '<p class="text-center text-gray-500">Select a date to see blocked times.</p>';
-    });
-
-    showBlockedTimesBtn.addEventListener('click', () => {
-        const date = unblockDateSelector.value;
-        if (!date) {
-            unblockTimesList.innerHTML = '<p class="text-center text-red-500">Please select a date.</p>';
-            return;
-        }
-        
-        const blockedTimesForDate = blockedTimes.filter(b => b.date === date);
+        unblockModal.classList.remove('hidden');
+        const blockedDayOptions = blockedTimes.filter(b => b.time === 'full-day');
         unblockTimesList.innerHTML = '';
-        if (blockedTimesForDate.length === 0) {
-            unblockTimesList.innerHTML = '<p class="text-center text-gray-500">No blocked times for this date.</p>';
+        if (blockedDayOptions.length === 0) {
+            unblockTimesList.innerHTML = '<p class="text-center text-gray-500">No blocked full days.</p>';
         } else {
-            blockedTimesForDate.forEach(block => {
+            blockedDayOptions.forEach(block => {
                 const itemEl = document.createElement('div');
                 itemEl.className = 'bg-gray-100 p-3 rounded-md flex justify-between items-center';
-                let displayText = '';
-                if (block.time === 'full-day') {
-                    displayText = 'Full Day';
-                } else {
-                    displayText = `${block.startTime} to ${block.endTime}`;
-                }
-                
-                itemEl.innerHTML = `<span class="flex-1">${displayText}</span>`;
+                itemEl.innerHTML = `<span class="flex-1">${block.date}</span>`;
                 const unblockButton = document.createElement('button');
                 unblockButton.className = 'text-red-500 hover:text-red-700';
                 unblockButton.innerHTML = '🗑️';
@@ -909,7 +833,10 @@
 
     blockFullDayBtn.addEventListener('click', () => {
         const date = blockDateSelector.value;
-        if (!date) return alert('Please select a date.');
+        if (!date) {
+            console.error('Please select a date.');
+            return;
+        }
         
         const newBlock = {
             id: Date.now(),
@@ -918,8 +845,8 @@
         };
         blockedTimes.push(newBlock);
         localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
-        alert('Full day blocked successfully!');
-        closeModal('blockModal');
+        console.log('Full day blocked successfully!');
+        blockModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
     });
 
@@ -929,7 +856,8 @@
         const endTime = blockEndTimeEl.value;
 
         if (!date || !startTime || !endTime) {
-            return alert('Please select a date, start time, and end time.');
+            console.error('Please select a date, start time, and end time.');
+            return;
         }
 
         const newBlock = {
@@ -940,51 +868,56 @@
         };
         blockedTimes.push(newBlock);
         localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
-        alert('Time blocked successfully!');
-        closeModal('blockModal');
+        console.log('Time blocked successfully!');
+        blockModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
     });
 
     function deleteBlockedTime(id) {
         blockedTimes = blockedTimes.filter(b => b.id !== id);
         localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
-        alert('Blocked time removed.');
-        closeModal('unblockModal');
+        unblockBtn.click();
         generateCalendar(currentMonth, currentYear);
+        console.log('Blocked time removed.');
     }
 
     window.deleteItem = function(id, type) {
-        if (confirm('Are you sure you want to delete this item?')) {
-            if (type === 'event') {
-                savedEvents = savedEvents.filter(e => e.id !== id);
-                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
-            } else if (type === 'task') {
-                savedTasks = savedTasks.filter(t => t.id !== id);
-                localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
-            } else if (type === 'appointment') {
-                savedAppointments = savedAppointments.filter(a => a.id !== id);
-                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
-            }
-            // Close the current modal before showing the updated list to prevent overlay issues
-            closeModal('savedItemsModal');
-            showSavedItems(type === 'event' ? savedEvents : savedAppointments, type === 'event' ? 'Events' : 'Appointments');
-            generateCalendar(currentMonth, currentYear);
+        if (type === 'event') {
+            savedEvents = savedEvents.filter(e => e.id !== id);
+            localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+            showSavedItems(savedEvents, 'Events');
+        } else if (type === 'task') {
+            savedTasks = savedTasks.filter(t => t.id !== id);
+            localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
+            showSavedItems(savedTasks, 'Tasks');
+        } else if (type === 'appointment') {
+            savedAppointments = savedAppointments.filter(a => a.id !== id);
+            localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+            showSavedItems(savedAppointments, 'Appointments');
         }
+        generateCalendar(currentMonth, currentYear);
     };
 
     window.editItem = function(id, type) {
-        // Fix: Close the saved items modal before opening the edit modal
-        closeModal('savedItemsModal');
+        if (type === 'appointment') {
+            const item = savedAppointments.find(a => a.id === id);
+            if (!item) return;
 
-        if (type === 'event') {
+            document.getElementById('appointmentName').value = item.name;
+            document.getElementById('appointmentPhone').value = item.phone;
+            document.getElementById('appointmentPurpose').value = item.purpose;
+            document.getElementById('appointmentComments').value = item.comments || '';
+            document.getElementById('submitAppointmentBtn').dataset.editId = id;
+
+            appointmentModal.classList.remove('hidden');
+
+        } else if (type === 'event') {
             const item = savedEvents.find(e => e.id === id);
             if (!item) return;
 
-            selectedDate = item.date;
-            openModal('eventModal');
-            generateTimeOptions(eventTimeEl, 9, 21, selectedDate);
-            
             eventTypeEl.value = item.type;
+            document.getElementById('eventTime').value = item.time;
+            document.getElementById('eventComments').value = item.comments || '';
             if (item.type === 'other') {
                 otherEventContainer.classList.remove('hidden');
                 document.getElementById('otherEvent').value = item.details;
@@ -992,25 +925,11 @@
                 otherEventContainer.classList.add('hidden');
             }
 
-            eventTimeEl.value = item.time;
-            eventCommentsEl.value = item.comments || '';
             document.getElementById('saveEventBtn').dataset.editId = id;
-
-        } else if (type === 'appointment') {
-            const item = savedAppointments.find(a => a.id === id);
-            if (!item) return;
-
-            selectedDate = item.date;
-            openModal('appointmentModal');
-            generateTimeOptions(document.getElementById('appointmentTime'), 9, 21, selectedDate);
-
-            document.getElementById('appointmentName').value = item.name;
-            document.getElementById('appointmentPhone').value = item.phone;
-            document.getElementById('appointmentPurpose').value = item.purpose;
-            document.getElementById('appointmentComments').value = item.comments || '';
-            document.getElementById('appointmentTime').value = item.time;
-            document.getElementById('submitAppointmentBtn').dataset.editId = id;
+            eventModal.classList.remove('hidden');
         }
+        
+        savedItemsModal.classList.add('hidden');
     };
 
     function showBellNotification() {
@@ -1041,7 +960,7 @@
 
             if (hoursUntilTask <= 12 && hoursUntilTask > 11 && !notifiedTasks[`${task.id}-12h`]) {
                 const message = `🔔 Reminder: You have a task in 12 hours - ${task.taskType}.`;
-                alert(message);
+                console.log(message);
                 showBellNotification();
                 notifiedTasks[`${task.id}-12h`] = true;
                 localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
@@ -1049,7 +968,7 @@
 
             if (hoursUntilTask <= 2 && hoursUntilTask > 1 && !notifiedTasks[`${task.id}-2h`]) {
                 const message = `🔔 Reminder: You have a task in 2 hours - ${task.taskType}.`;
-                alert(message);
+                console.log(message);
                 showBellNotification();
                 notifiedTasks[`${task.id}-2h`] = true;
                 localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));

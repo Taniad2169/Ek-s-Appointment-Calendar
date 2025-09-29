@@ -3,23 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ek's Calendar - Barber Appointments</title>
-    
-    <!-- Content Security Policy to fix framing errors -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; frame-src 'self'">
-    
-    <!-- Using Tailwind CSS via CDN -->
+    <title>Personal Calendar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Make body scrollable when embedded */
         body, html {
             margin: 0;
             padding: 0;
-            height: auto; /* Changed from 100% to auto */
+            height: 100%;
             width: 100%;
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            overflow: visible; /* Changed from hidden to visible */
         }
         
         .app-container {
@@ -49,19 +42,6 @@
         
         .header h2 {
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-            margin-bottom: 5px;
-        }
-        
-        .designer-info {
-            color: white;
-            font-weight: bold;
-            font-size: 0.9rem;
-            margin-top: 5px;
-        }
-        
-        .designer-info a {
-            color: white;
-            text-decoration: underline;
         }
 
         .calendar-main {
@@ -80,7 +60,8 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             width: 100%;
             max-width: 960px; 
-            min-height: 500px; /* Changed from 80vh to fixed min-height */
+            height: 100%;
+            min-height: 80vh;
             display: flex;
             flex-direction: column;
         }
@@ -271,50 +252,47 @@
             width: 100%;
             position: relative;
         }
-        
-        /* Small device responsiveness - Fixed for embedding */
-        @media (max-width: 768px) {
-            .calendar-wrapper {
-                min-height: 400px; /* Fixed height for mobile */
-            }
-            
-            .calendar-cell {
-                font-size: clamp(12px, 3vw, 16px);
-            }
-            
-            .header {
-                padding: 15px 10px;
-            }
-            
-            .header h1 {
-                font-size: 1.5rem;
-            }
-            
-            .header h2 {
-                font-size: 1.1rem;
-            }
-            
-            .designer-info {
-                font-size: 0.8rem;
-            }
-            
-            .btn-custom {
-                padding: 8px 16px;
-                font-size: 0.9rem;
-            }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-weight: 500;
         }
         
-        /* Ensure the calendar doesn't interfere with parent page scrolling */
-        .calendar-container {
-            overflow: visible !important;
+        .alert-success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .alert-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #d91d09;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
         }
         
     </style>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase App and Firestore -->
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-analytics.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-firestore.js"></script>
 
     <script>
       const firebaseConfig = {
@@ -327,26 +305,22 @@
         measurementId: "G-RF71N8KHB7"
       };
 
-      // Initialize Firebase with error handling
-      try {
-        firebase.initializeApp(firebaseConfig);
-        firebase.analytics();
-      } catch (error) {
-        console.error('Firebase initialization error:', error);
-      }
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      
+      // Initialize Firestore
+      const db = firebase.firestore();
     </script>
 </head>
 <body class="app-container">
+
     <div class="header">
         <h1 class="text-3xl font-bold relative z-10">Ek's Calendar <span class="red-text">Best Barber in Town</span></h1>
         <h2 class="text-xl relative z-10">Book an appointment</h2>
-        <div class="designer-info">
-            Custom calendar designed by Tania Domingue 
-            <a href="tel:4158770687">(415) 877-0687</a>
-        </div>
         <span class="target-animated" style="left: 10%;">🎯</span>
         <span class="target-animated" style="right: 10%;">🎯</span>
         <span id="bell-emoji" class="bell-animated hidden" style="left: 50%; top: 10px;">🔔</span>
+        <span id="notification-badge" class="notification-badge hidden">!</span>
         <span class="barber-pole-animated">💈</span>
         <span class="razor-animated">🪒</span>
     </div>
@@ -366,7 +340,6 @@
                 <div class="week-day-header">Thu</div>
                 <div class="week-day-header">Fri</div>
                 <div class="week-day-header">Sat</div>
-                <!-- Calendar days will be generated here -->
             </div>
         </div>
     </div>
@@ -374,35 +347,36 @@
     <div class="flex justify-center space-x-4 p-4">
         <button id="viewAppointmentsBtn" class="btn-custom admin-button hidden">View Appointments</button>
         <button id="viewEventsBtn" class="btn-custom admin-button hidden">Saved Events</button>
-        <button id="viewTasksBtn" class="btn-custom admin-button hidden">Saved Tasks</button>
         <button id="blockBtn" class="btn-custom admin-button hidden">Block Day/Hours</button>
         <button id="unblockBtn" class="btn-custom admin-button hidden">Unblock Day/Hours</button>
     </div>
     
-    <!-- Appointment Modal -->
     <div id="appointmentModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Set Appointment</h3>
+            <div id="appointmentAlert" class="hidden"></div>
             <div class="mb-4">
                 <label for="appointmentTime" class="block mb-2 text-sm font-medium text-gray-700">Time:</label>
                 <select id="appointmentTime" class="w-full p-2 border rounded-md"></select>
             </div>
             <div class="mb-4">
                 <label for="appointmentName" class="block mb-2 text-sm font-medium text-gray-700">Name:</label>
-                <input type="text" id="appointmentName" class="w-full p-2 border rounded-md">
+                <input type="text" id="appointmentName" class="w-full p-2 border rounded-md" required>
             </div>
             <div class="mb-4">
                 <label for="appointmentPhone" class="block mb-2 text-sm font-medium text-gray-700">Phone Number:</label>
-                <input type="tel" id="appointmentPhone" class="w-full p-2 border rounded-md">
+                <input type="tel" id="appointmentPhone" class="w-full p-2 border rounded-md" required>
             </div>
             <div class="mb-4">
                 <label for="appointmentPurpose" class="block mb-2 text-sm font-medium text-gray-700">Purpose:</label>
-                <select id="appointmentPurpose" class="w-full p-2 border rounded-md">
-                    <option value="select">Select</option>
-                    <option value="haircut">Haircut</option>
-                    <option value="shave">Shave</option>
-                    <option value="styling">Styling</option>
+                <select id="appointmentPurpose" class="w-full p-2 border rounded-md" required>
                     <option value="consultation">Consultation</option>
+                    <option value="haircut_shears">Haircut + shears</option>
+                    <option value="buzzcut">Buzzcut</option>
+                    <option value="lineup">Lineup</option>
+                    <option value="haircut">Haircut</option>
+                    <option value="beard_trim_lineup">Beard trim/lineup</option>
+                    <option value="haircut_beard">Haircut + beard</option>
                 </select>
             </div>
             <div class="mb-4">
@@ -416,7 +390,6 @@
         </div>
     </div>
 
-    <!-- Event Modal -->
     <div id="eventModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Add Event</h3>
@@ -449,7 +422,6 @@
         </div>
     </div>
 
-    <!-- Task Modal -->
     <div id="taskModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Add Task</h3>
@@ -475,10 +447,6 @@
                 <label for="otherTask" class="block mb-2 text-sm font-medium text-gray-700">Other Task (50 words):</label>
                 <textarea id="otherTask" class="w-full p-2 border rounded-md" rows="2" maxlength="250"></textarea>
             </div>
-            <div class="mb-4">
-                <label for="taskTime" class="block mb-2 text-sm font-medium text-gray-700">Time:</label>
-                <select id="taskTime" class="w-full p-2 border rounded-md"></select>
-            </div>
             <div class="flex justify-end space-x-2">
                 <button class="btn-custom bg-gray-500 hover:bg-gray-600" id="closeTaskModal">Cancel</button>
                 <button class="btn-custom" id="saveTaskBtn">Save Task</button>
@@ -486,7 +454,6 @@
         </div>
     </div>
 
-    <!-- Saved Items Modal -->
     <div id="savedItemsModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 id="savedItemsTitle" class="text-xl font-bold mb-4">Saved Events</h3>
@@ -499,7 +466,6 @@
         </div>
     </div>
 
-    <!-- Block Modal -->
     <div id="blockModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Block Time</h3>
@@ -525,7 +491,6 @@
         </div>
     </div>
     
-    <!-- Unblock Modal -->
     <div id="unblockModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="text-xl font-bold mb-4">Unblock Time</h3>
@@ -539,15 +504,12 @@
             </div>
         </div>
     </div>
-    
-    <!-- Footer -->
     <div class="footer flex justify-center items-center p-4">
         <button id="adminLoginBtn" class="lock-btn">🔐</button>
         <button id="exitAdminBtn" class="lock-btn hidden">🔓</button>
     </div>
 
 <script>
-    // DOM Elements
     const calendarGridEl = document.querySelector('.calendar-grid');
     const currentMonthYearEl = document.getElementById('currentMonthYear');
     const prevMonthBtn = document.getElementById('prevMonth');
@@ -562,12 +524,10 @@
     const otherTaskContainer = document.getElementById('otherTaskContainer');
     const taskTypeEl = document.getElementById('taskType');
     const eventTimeEl = document.getElementById('eventTime');
-    const taskTimeEl = document.getElementById('taskTime');
     const eventCommentsEl = document.getElementById('eventComments');
     const savedItemsList = document.getElementById('savedItemsList');
     const viewAppointmentsBtn = document.getElementById('viewAppointmentsBtn');
     const viewEventsBtn = document.getElementById('viewEventsBtn');
-    const viewTasksBtn = document.getElementById('viewTasksBtn');
     const blockBtn = document.getElementById('blockBtn');
     const unblockBtn = document.getElementById('unblockBtn');
     const blockModal = document.getElementById('blockModal');
@@ -580,24 +540,142 @@
     const unblockDateSelector = document.getElementById('unblockDateSelector');
     const unblockTimesList = document.getElementById('unblockTimesList');
     const bellEmojiEl = document.getElementById('bell-emoji');
+    const notificationBadge = document.getElementById('notification-badge');
     const adminLoginBtn = document.getElementById('adminLoginBtn');
     const exitAdminBtn = document.getElementById('exitAdminBtn');
     const adminButtons = document.querySelectorAll('.admin-button');
+    const appointmentAlert = document.getElementById('appointmentAlert');
 
-    // State Variables
     let currentMonth = new Date().getMonth();
     let currentYear = new Date().getFullYear();
     let selectedDate = null;
-    let savedEvents = JSON.parse(localStorage.getItem('savedEvents')) || [];
-    let savedTasks = JSON.parse(localStorage.getItem('savedTasks')) || [];
-    let blockedTimes = JSON.parse(localStorage.getItem('blockedTimes')) || [];
-    let savedAppointments = JSON.parse(localStorage.getItem('savedAppointments')) || [];
-    let notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks')) || {};
-    
-    // Sound for notifications
-    const bellSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3');
+    let savedEvents = [];
+    let savedTasks = [];
+    let blockedTimes = [];
+    let savedAppointments = [];
+    let notifiedItems = JSON.parse(localStorage.getItem('notifiedItems')) || {};
+    let pendingNotifications = 0;
 
-    // Admin Login/Logout
+    // API endpoint for appointment submission - UPDATE THIS WITH YOUR ACTUAL ENDPOINT
+    const APPOINTMENT_ENDPOINT = 'https://your-backend-server.com/api/appointments';
+
+    // Create bell sound using Web Audio API to avoid file loading issues
+    function createBellSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.5);
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    }
+
+    function showAlert(message, type = 'success') {
+        appointmentAlert.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        appointmentAlert.classList.remove('hidden');
+        setTimeout(() => {
+            appointmentAlert.classList.add('hidden');
+        }, 5000);
+    }
+
+    // Firestore Functions
+    async function saveToFirestore(collection, data) {
+        try {
+            const docRef = await db.collection(collection).add({
+                ...data,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`Document written to ${collection} with ID:`, docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error(`Error adding document to ${collection}:`, error);
+            throw error;
+        }
+    }
+
+    async function loadFromFirestore(collection) {
+        try {
+            const querySnapshot = await db.collection(collection).orderBy('createdAt', 'desc').get();
+            const data = [];
+            querySnapshot.forEach((doc) => {
+                data.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            return data;
+        } catch (error) {
+            console.error(`Error loading documents from ${collection}:`, error);
+            return [];
+        }
+    }
+
+    async function updateInFirestore(collection, id, data) {
+        try {
+            await db.collection(collection).doc(id).update({
+                ...data,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`Document updated in ${collection} with ID:`, id);
+        } catch (error) {
+            console.error(`Error updating document in ${collection}:`, error);
+            throw error;
+        }
+    }
+
+    async function deleteFromFirestore(collection, id) {
+        try {
+            await db.collection(collection).doc(id).delete();
+            console.log(`Document deleted from ${collection} with ID:`, id);
+        } catch (error) {
+            console.error(`Error deleting document from ${collection}:`, error);
+            throw error;
+        }
+    }
+
+    // Initialize data from Firestore
+    async function initializeData() {
+        try {
+            savedAppointments = await loadFromFirestore('appointments');
+            savedEvents = await loadFromFirestore('events');
+            savedTasks = await loadFromFirestore('tasks');
+            blockedTimes = await loadFromFirestore('blockedTimes');
+            
+            console.log('Data loaded from Firestore:', {
+                appointments: savedAppointments.length,
+                events: savedEvents.length,
+                tasks: savedTasks.length,
+                blockedTimes: blockedTimes.length
+            });
+            
+            generateCalendar(currentMonth, currentYear);
+            checkAllNotifications();
+        } catch (error) {
+            console.error('Error initializing data from Firestore:', error);
+            // Fallback to localStorage
+            loadFromLocalStorage();
+        }
+    }
+
+    function loadFromLocalStorage() {
+        savedEvents = JSON.parse(localStorage.getItem('savedEvents')) || [];
+        savedTasks = JSON.parse(localStorage.getItem('savedTasks')) || [];
+        blockedTimes = JSON.parse(localStorage.getItem('blockedTimes')) || [];
+        savedAppointments = JSON.parse(localStorage.getItem('savedAppointments')) || [];
+        generateCalendar(currentMonth, currentYear);
+        checkAllNotifications();
+    }
+
     adminLoginBtn.addEventListener('click', () => {
         const password = prompt("Please enter the password to unlock admin features. Type 'forget' to reset.");
         if (password === 'admin123') {
@@ -618,7 +696,6 @@
         adminLoginBtn.classList.remove('hidden');
     });
 
-    // Generate Calendar
     function generateCalendar(month, year) {
         while (calendarGridEl.children.length > 7) {
             calendarGridEl.removeChild(calendarGridEl.lastChild);
@@ -686,7 +763,6 @@
         }
     }
 
-    // Generate Time Options
     function generateTimeOptions(selectElement, startHour, endHour) {
         selectElement.innerHTML = '';
         for (let hour = startHour; hour <= endHour; hour++) {
@@ -698,13 +774,13 @@
         }
     }
 
-    // Reset and Populate Appointment Form
     function resetAndPopulateAppointmentForm() {
         document.getElementById('appointmentName').value = '';
         document.getElementById('appointmentPhone').value = '';
         document.getElementById('appointmentComments').value = '';
-        document.getElementById('appointmentPurpose').value = 'select';
+        document.getElementById('appointmentPurpose').value = 'consultation';
         document.getElementById('submitAppointmentBtn').dataset.editId = '';
+        appointmentAlert.classList.add('hidden');
 
         const appointmentTimeEl = document.getElementById('appointmentTime');
         appointmentTimeEl.innerHTML = '';
@@ -727,7 +803,6 @@
         }
     }
 
-    // Show Saved Items
     function showSavedItems(items, title) {
         document.getElementById('savedItemsTitle').textContent = `Saved ${title}`;
         savedItemsList.innerHTML = '';
@@ -743,7 +818,7 @@
                 } else if (title === 'Events') {
                     displayText = `${item.date} @ ${item.time}: ${item.type}` + (item.details ? ` (${item.details})` : '') + (item.comments ? ` - Comments: ${item.comments}` : '');
                 } else if (title === 'Tasks') {
-                    displayText = `${item.date} @ ${item.time || 'All day'}: ${item.taskType}` + (item.details ? ` (${item.details})` : '');
+                    displayText = `${item.date}: ${item.taskType}` + (item.details ? ` (${item.details})` : '');
                 }
                 
                 itemEl.innerHTML = `<span class="flex-1">${displayText}</span>`;
@@ -769,7 +844,6 @@
         savedItemsModal.classList.remove('hidden');
     }
 
-    // Modal Close Event Listeners
     document.getElementById('closeAppointmentModal').addEventListener('click', () => appointmentModal.classList.add('hidden'));
     document.getElementById('closeEventModal').addEventListener('click', () => eventModal.classList.add('hidden'));
     document.getElementById('closeTaskModal').addEventListener('click', () => taskModal.classList.add('hidden'));
@@ -777,18 +851,11 @@
     document.getElementById('closeBlockModal').addEventListener('click', () => blockModal.classList.add('hidden'));
     document.getElementById('closeUnblockModal').addEventListener('click', () => unblockModal.classList.add('hidden'));
 
-    // Event Type Change Handler
     eventTypeEl.addEventListener('change', (e) => {
         otherEventContainer.classList.toggle('hidden', e.target.value !== 'other');
     });
 
-    // Task Type Change Handler
-    taskTypeEl.addEventListener('change', (e) => {
-        otherTaskContainer.classList.toggle('hidden', e.target.value !== 'other');
-    });
-
-    // Submit Appointment
-    document.getElementById('submitAppointmentBtn').addEventListener('click', () => {
+    document.getElementById('submitAppointmentBtn').addEventListener('click', async () => {
         const appointmentTime = document.getElementById('appointmentTime').value;
         const name = document.getElementById('appointmentName').value.trim();
         const phone = document.getElementById('appointmentPhone').value.trim();
@@ -797,27 +864,37 @@
         const editId = document.getElementById('submitAppointmentBtn').dataset.editId;
 
         if (!name || !phone) {
-            alert('Please enter your name and phone number.');
+            showAlert('Please enter your name and phone number.', 'error');
             return;
         }
 
         if (editId) {
             const itemIndex = savedAppointments.findIndex(item => item.id == editId);
             if (itemIndex > -1) {
-                savedAppointments[itemIndex].date = selectedDate;
-                savedAppointments[itemIndex].time = appointmentTime;
-                savedAppointments[itemIndex].name = name;
-                savedAppointments[itemIndex].phone = phone;
-                savedAppointments[itemIndex].purpose = purpose;
-                savedAppointments[itemIndex].comments = comments;
-                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
-                alert('Appointment successfully updated!');
-                showSavedItems(savedAppointments, 'Appointments');
+                const updatedAppointment = {
+                    date: selectedDate,
+                    time: appointmentTime,
+                    name: name,
+                    phone: phone,
+                    purpose: purpose,
+                    comments: comments
+                };
+                
+                savedAppointments[itemIndex] = { ...savedAppointments[itemIndex], ...updatedAppointment };
+                
+                try {
+                    await updateInFirestore('appointments', editId, updatedAppointment);
+                    localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                    showAlert('Appointment successfully updated!');
+                    showSavedItems(savedAppointments, 'Appointments');
+                } catch (error) {
+                    localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                    showAlert('Appointment updated locally. There was an issue updating in database.', 'error');
+                }
             }
             delete document.getElementById('submitAppointmentBtn').dataset.editId;
         } else {
             const newAppointment = {
-                id: Date.now(),
                 date: selectedDate,
                 time: appointmentTime,
                 name: name,
@@ -825,17 +902,33 @@
                 purpose: purpose,
                 comments: comments
             };
-            savedAppointments.push(newAppointment);
-            localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
-            alert('Appointment submitted!');
+
+            try {
+                // Save to Firestore
+                const firestoreId = await saveToFirestore('appointments', newAppointment);
+                newAppointment.id = firestoreId;
+                
+                // Also save locally
+                savedAppointments.push(newAppointment);
+                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                
+                showAlert('Appointment submitted successfully! You will receive a confirmation shortly.');
+            } catch (error) {
+                console.error('Error submitting appointment:', error);
+                // Fallback: save locally if backend fails
+                newAppointment.id = Date.now();
+                savedAppointments.push(newAppointment);
+                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                showAlert('Appointment saved locally. There was an issue sending to server.', 'error');
+            }
         }
 
         appointmentModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
+        checkAllNotifications();
     });
 
-    // Save Event
-    document.getElementById('saveEventBtn').addEventListener('click', () => {
+    document.getElementById('saveEventBtn').addEventListener('click', async () => {
         const editId = document.getElementById('saveEventBtn').dataset.editId;
         const eventType = eventTypeEl.value;
         const eventTime = eventTimeEl.value;
@@ -843,89 +936,65 @@
         const comments = eventCommentsEl.value.trim();
 
         if (eventType === 'other' && !details) {
-            alert('Please describe the event.');
+            showAlert('Please describe the event.', 'error');
             return;
         }
 
         if (editId) {
             const itemIndex = savedEvents.findIndex(item => item.id == editId);
             if (itemIndex > -1) {
-                savedEvents[itemIndex].date = selectedDate;
-                savedEvents[itemIndex].time = eventTime;
-                savedEvents[itemIndex].type = eventType;
-                savedEvents[itemIndex].details = details;
-                savedEvents[itemIndex].comments = comments;
-                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
-                alert('Event successfully updated!');
-                showSavedItems(savedEvents, 'Events');
+                const updatedEvent = {
+                    date: selectedDate,
+                    time: eventTime,
+                    type: eventType,
+                    details: details,
+                    comments: comments
+                };
+                
+                savedEvents[itemIndex] = { ...savedEvents[itemIndex], ...updatedEvent };
+                
+                try {
+                    await updateInFirestore('events', editId, updatedEvent);
+                    localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                    showAlert('Event successfully updated!');
+                    showSavedItems(savedEvents, 'Events');
+                } catch (error) {
+                    localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                    showAlert('Event updated locally. There was an issue updating in database.', 'error');
+                }
             }
             delete document.getElementById('saveEventBtn').dataset.editId;
         } else {
             if (!selectedDate) {
-                alert('Please select a date on the calendar first.');
+                showAlert('Please select a date on the calendar first.', 'error');
                 return;
             }
             const newEvent = {
-                id: Date.now(),
                 date: selectedDate,
                 time: eventTime,
                 type: eventType,
                 details: details,
                 comments: comments
             };
-            savedEvents.push(newEvent);
-            localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
-            alert('Event saved!');
+            
+            try {
+                const firestoreId = await saveToFirestore('events', newEvent);
+                newEvent.id = firestoreId;
+                savedEvents.push(newEvent);
+                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                showAlert('Event saved successfully!');
+            } catch (error) {
+                newEvent.id = Date.now();
+                savedEvents.push(newEvent);
+                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                showAlert('Event saved locally. There was an issue saving to database.', 'error');
+            }
         }
         eventModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
+        checkAllNotifications();
     });
 
-    // Save Task
-    document.getElementById('saveTaskBtn').addEventListener('click', () => {
-        const taskType = taskTypeEl.value;
-        const taskTime = taskTimeEl.value;
-        const details = taskType === 'other' ? document.getElementById('otherTask').value.trim() : '';
-        const editId = document.getElementById('saveTaskBtn').dataset.editId;
-
-        if (taskType === 'other' && !details) {
-            alert('Please describe the task.');
-            return;
-        }
-
-        if (editId) {
-            const itemIndex = savedTasks.findIndex(item => item.id == editId);
-            if (itemIndex > -1) {
-                savedTasks[itemIndex].date = selectedDate;
-                savedTasks[itemIndex].time = taskTime;
-                savedTasks[itemIndex].taskType = taskType;
-                savedTasks[itemIndex].details = details;
-                localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
-                alert('Task successfully updated!');
-                showSavedItems(savedTasks, 'Tasks');
-            }
-            delete document.getElementById('saveTaskBtn').dataset.editId;
-        } else {
-            if (!selectedDate) {
-                alert('Please select a date on the calendar first.');
-                return;
-            }
-            const newTask = {
-                id: Date.now(),
-                date: selectedDate,
-                time: taskTime,
-                taskType: taskType,
-                details: details
-            };
-            savedTasks.push(newTask);
-            localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
-            alert('Task saved!');
-        }
-        taskModal.classList.add('hidden');
-        generateCalendar(currentMonth, currentYear);
-    });
-
-    // Month Navigation
     prevMonthBtn.addEventListener('click', () => {
         currentMonth--;
         if (currentMonth < 0) {
@@ -944,7 +1013,6 @@
         generateCalendar(currentMonth, currentYear);
     });
 
-    // View Buttons
     viewAppointmentsBtn.addEventListener('click', () => {
         showSavedItems(savedAppointments, 'Appointments');
     });
@@ -953,11 +1021,6 @@
         showSavedItems(savedEvents, 'Events');
     });
 
-    viewTasksBtn.addEventListener('click', () => {
-        showSavedItems(savedTasks, 'Tasks');
-    });
-
-    // Block/Unblock Functionality
     blockBtn.addEventListener('click', () => {
         blockModal.classList.remove('hidden');
         generateTimeOptions(blockStartTimeEl, 5, 23);
@@ -985,75 +1048,121 @@
         }
     });
 
-    blockFullDayBtn.addEventListener('click', () => {
+    blockFullDayBtn.addEventListener('click', async () => {
         const date = blockDateSelector.value;
         if (!date) {
-            alert('Please select a date.');
+            showAlert('Please select a date.', 'error');
             return;
         }
         
         const newBlock = {
-            id: Date.now(),
             date: date,
             time: 'full-day'
         };
-        blockedTimes.push(newBlock);
-        localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
-        alert('Full day blocked successfully!');
+        
+        try {
+            const firestoreId = await saveToFirestore('blockedTimes', newBlock);
+            newBlock.id = firestoreId;
+            blockedTimes.push(newBlock);
+            localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+            showAlert('Full day blocked successfully!');
+        } catch (error) {
+            newBlock.id = Date.now();
+            blockedTimes.push(newBlock);
+            localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+            showAlert('Full day blocked locally. There was an issue saving to database.', 'error');
+        }
         blockModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
     });
 
-    document.getElementById('saveBlockBtn').addEventListener('click', () => {
+    document.getElementById('saveBlockBtn').addEventListener('click', async () => {
         const date = blockDateSelector.value;
         const startTime = blockStartTimeEl.value;
         const endTime = blockEndTimeEl.value;
 
         if (!date || !startTime || !endTime) {
-            alert('Please select a date, start time, and end time.');
+            showAlert('Please select a date, start time, and end time.', 'error');
             return;
         }
 
         const newBlock = {
-            id: Date.now(),
             date: date,
             startTime: startTime,
             endTime: endTime
         };
-        blockedTimes.push(newBlock);
-        localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
-        alert('Time blocked successfully!');
+        
+        try {
+            const firestoreId = await saveToFirestore('blockedTimes', newBlock);
+            newBlock.id = firestoreId;
+            blockedTimes.push(newBlock);
+            localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+            showAlert('Time blocked successfully!');
+        } catch (error) {
+            newBlock.id = Date.now();
+            blockedTimes.push(newBlock);
+            localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+            showAlert('Time blocked locally. There was an issue saving to database.', 'error');
+        }
         blockModal.classList.add('hidden');
         generateCalendar(currentMonth, currentYear);
     });
 
-    function deleteBlockedTime(id) {
-        blockedTimes = blockedTimes.filter(b => b.id !== id);
-        localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+    async function deleteBlockedTime(id) {
+        try {
+            await deleteFromFirestore('blockedTimes', id);
+            blockedTimes = blockedTimes.filter(b => b.id !== id);
+            localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+            showAlert('Blocked time removed successfully!');
+        } catch (error) {
+            blockedTimes = blockedTimes.filter(b => b.id !== id);
+            localStorage.setItem('blockedTimes', JSON.stringify(blockedTimes));
+            showAlert('Blocked time removed locally. There was an issue removing from database.', 'error');
+        }
         unblockBtn.click();
         generateCalendar(currentMonth, currentYear);
-        alert('Blocked time removed.');
     }
 
-    // Delete Item
-    window.deleteItem = function(id, type) {
-        if (type === 'event') {
-            savedEvents = savedEvents.filter(e => e.id !== id);
-            localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
-            showSavedItems(savedEvents, 'Events');
-        } else if (type === 'task') {
-            savedTasks = savedTasks.filter(t => t.id !== id);
-            localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
-            showSavedItems(savedTasks, 'Tasks');
-        } else if (type === 'appointment') {
-            savedAppointments = savedAppointments.filter(a => a.id !== id);
-            localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
-            showSavedItems(savedAppointments, 'Appointments');
+    window.deleteItem = async function(id, type) {
+        const collection = type === 'event' ? 'events' : 
+                          type === 'task' ? 'tasks' : 
+                          'appointments';
+        
+        try {
+            await deleteFromFirestore(collection, id);
+            
+            if (type === 'event') {
+                savedEvents = savedEvents.filter(e => e.id !== id);
+                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                showSavedItems(savedEvents, 'Events');
+            } else if (type === 'task') {
+                savedTasks = savedTasks.filter(t => t.id !== id);
+                localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
+                showSavedItems(savedTasks, 'Tasks');
+            } else if (type === 'appointment') {
+                savedAppointments = savedAppointments.filter(a => a.id !== id);
+                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                showSavedItems(savedAppointments, 'Appointments');
+            }
+        } catch (error) {
+            if (type === 'event') {
+                savedEvents = savedEvents.filter(e => e.id !== id);
+                localStorage.setItem('savedEvents', JSON.stringify(savedEvents));
+                showSavedItems(savedEvents, 'Events');
+            } else if (type === 'task') {
+                savedTasks = savedTasks.filter(t => t.id !== id);
+                localStorage.setItem('savedTasks', JSON.stringify(savedTasks));
+                showSavedItems(savedTasks, 'Tasks');
+            } else if (type === 'appointment') {
+                savedAppointments = savedAppointments.filter(a => a.id !== id);
+                localStorage.setItem('savedAppointments', JSON.stringify(savedAppointments));
+                showSavedItems(savedAppointments, 'Appointments');
+            }
+            showAlert('Item deleted locally. There was an issue removing from database.', 'error');
         }
         generateCalendar(currentMonth, currentYear);
     };
 
-    // Edit Item
     window.editItem = function(id, type) {
         if (type === 'appointment') {
             const item = savedAppointments.find(a => a.id === id);
@@ -1083,83 +1192,111 @@
 
             document.getElementById('saveEventBtn').dataset.editId = id;
             eventModal.classList.remove('hidden');
-        } else if (type === 'task') {
-            const item = savedTasks.find(t => t.id === id);
-            if (!item) return;
-
-            taskTypeEl.value = item.taskType;
-            if (item.time) {
-                document.getElementById('taskTime').value = item.time;
-            }
-            if (item.taskType === 'other') {
-                otherTaskContainer.classList.remove('hidden');
-                document.getElementById('otherTask').value = item.details || '';
-            } else {
-                otherTaskContainer.classList.add('hidden');
-            }
-
-            document.getElementById('saveTaskBtn').dataset.editId = id;
-            taskModal.classList.remove('hidden');
         }
         
         savedItemsModal.classList.add('hidden');
     };
 
-    // Notification System
-    function showBellNotification() {
+    function showBellNotification(message = 'You have upcoming events!') {
         bellEmojiEl.classList.remove('hidden');
         bellEmojiEl.classList.add('bell-ring-animation');
-        bellSound.play().catch(e => console.log('Audio play failed:', e));
+        createBellSound();
+        
+        // Show notification badge
+        pendingNotifications++;
+        notificationBadge.textContent = pendingNotifications;
+        notificationBadge.classList.remove('hidden');
+        
+        // Optional: Show browser notification if permitted
+        if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Calendar Reminder", {
+                body: message,
+                icon: "🔔"
+            });
+        }
+        
         setTimeout(() => {
             bellEmojiEl.classList.remove('bell-ring-animation');
             bellEmojiEl.classList.add('hidden');
         }, 3000);
     }
 
-    function checkNotifications() {
+    function checkAllNotifications() {
         const now = new Date();
+        pendingNotifications = 0;
 
-        savedTasks.forEach(task => {
-            if (!task.date || !task.time) return;
+        // Check appointments
+        savedAppointments.forEach(appointment => {
+            if (!appointment.date || !appointment.time) return;
             
-            const taskDateTimeStr = `${task.date}T${task.time}:00`;
-            const taskDate = new Date(taskDateTimeStr);
+            const appointmentDateTimeStr = `${appointment.date}T${appointment.time}:00`;
+            const appointmentDate = new Date(appointmentDateTimeStr);
             
-            if (isNaN(taskDate.getTime())) {
-                console.error('Invalid task date:', task);
+            if (isNaN(appointmentDate.getTime())) {
+                console.error('Invalid appointment date:', appointment);
                 return;
             }
 
-            const timeUntilTask = taskDate.getTime() - now.getTime();
-            const hoursUntilTask = timeUntilTask / (1000 * 60 * 60);
+            const timeUntilAppointment = appointmentDate.getTime() - now.getTime();
+            const hoursUntilAppointment = timeUntilAppointment / (1000 * 60 * 60);
 
-            if (hoursUntilTask <= 12 && hoursUntilTask > 11 && !notifiedTasks[`${task.id}-12h`]) {
-                const message = `🔔 Reminder: You have a task in 12 hours - ${task.taskType}.`;
+            if (hoursUntilAppointment <= 2 && hoursUntilAppointment > 0 && !notifiedItems[`appointment-${appointment.id}-2h`]) {
+                const message = `🔔 Reminder: You have an appointment in ${Math.ceil(hoursUntilAppointment * 60)} minutes - ${appointment.name} for ${appointment.purpose}.`;
                 console.log(message);
-                showBellNotification();
-                notifiedTasks[`${task.id}-12h`] = true;
-                localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
-            }
-
-            if (hoursUntilTask <= 2 && hoursUntilTask > 1 && !notifiedTasks[`${task.id}-2h`]) {
-                const message = `🔔 Reminder: You have a task in 2 hours - ${task.taskType}.`;
-                console.log(message);
-                showBellNotification();
-                notifiedTasks[`${task.id}-2h`] = true;
-                localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
+                showBellNotification(message);
+                notifiedItems[`appointment-${appointment.id}-2h`] = true;
+                pendingNotifications++;
             }
         });
+
+        // Check events
+        savedEvents.forEach(event => {
+            if (!event.date || !event.time) return;
+            
+            const eventDateTimeStr = `${event.date}T${event.time}:00`;
+            const eventDate = new Date(eventDateTimeStr);
+            
+            if (isNaN(eventDate.getTime())) {
+                console.error('Invalid event date:', event);
+                return;
+            }
+
+            const timeUntilEvent = eventDate.getTime() - now.getTime();
+            const hoursUntilEvent = timeUntilEvent / (1000 * 60 * 60);
+
+            if (hoursUntilEvent <= 2 && hoursUntilEvent > 0 && !notifiedItems[`event-${event.id}-2h`]) {
+                const message = `🔔 Reminder: You have an event in ${Math.ceil(hoursUntilEvent * 60)} minutes - ${event.type}.`;
+                console.log(message);
+                showBellNotification(message);
+                notifiedItems[`event-${event.id}-2h`] = true;
+                pendingNotifications++;
+            }
+        });
+
+        // Update notification badge
+        if (pendingNotifications > 0) {
+            notificationBadge.textContent = pendingNotifications;
+            notificationBadge.classList.remove('hidden');
+        } else {
+            notificationBadge.classList.add('hidden');
+        }
+
+        localStorage.setItem('notifiedItems', JSON.stringify(notifiedItems));
+    }
+
+    // Request notification permission
+    if ("Notification" in window) {
+        Notification.requestPermission();
     }
 
     // Initialize the application
-    setInterval(checkNotifications, 60000);
-    checkNotifications();
-    generateCalendar(currentMonth, currentYear);
-    
-    // Generate time options for task modal on page load
     document.addEventListener('DOMContentLoaded', function() {
-        generateTimeOptions(taskTimeEl, 5, 23);
+        initializeData();
+        setInterval(checkAllNotifications, 60000); // Check every minute
     });
+
+    // Generate initial calendar
+    generateCalendar(currentMonth, currentYear);
 </script>
 </body>
 </html>
